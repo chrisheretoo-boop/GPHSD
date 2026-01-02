@@ -1,20 +1,32 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# 🐝 GPHS Student Business Directory
 
-# Run and deploy your AI Studio app
+The official **Gwynn Park High School Business Directory** (The Hive). A web application designed to connect student entrepreneurs with the school community. This platform allows students to register their businesses, manage their profiles, and allows the administration to approve and monitor listings.
 
-This contains everything you need to run your app locally.
+## 🚀 Features
 
-View your app in AI Studio: https://ai.studio/apps/drive/19dywtZLnA0DQhpNDtNEac0X_hgWzFibh
+* **Public Marketplace:** A clean, responsive grid displaying all approved student businesses with images, descriptions, and pricing.
+* **Student Owner Dashboard:**
+    * Register a new business.
+    * Edit business details (Name, Description, Price, Contact).
+    * Update business logos/images via external URLs.
+    * View subscription status (7-day trial system).
+* **Admin Dashboard:**
+    * View all registered applications.
+    * Approve or Delete listings.
+    * Manage subscription time (Add/Remove days).
+    * Monitor active vs. expired businesses.
+* **Secure Authentication:** Custom login system handling Student and Admin access.
+* **Zero-Cost Image Hosting:** Uses external image URLs (Imgur, Drive, etc.) to avoid paid storage costs.
 
-## Run Locally
+## 🛠️ Tech Stack
 
-**Prerequisites:**  Node.js
+* **Frontend:** HTML5, CSS3 (Varsity Gold Theme), Vanilla JavaScript.
+* **Backend:** Google Firebase (Firestore Database).
+* **Hosting:** Netlify (Optimized for school network compatibility).
+* **Fonts:** Google Fonts ('Teko' for headers, 'Inter' for body).
 
+## ⚙️ Setup & Configuration
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+### 1. Clone the Repository
+```bash
+git clone [https://github.com/yourusername/GPHS-Business-Directory.git](https://github.com/yourusername/GPHS-Business-Directory.git)
