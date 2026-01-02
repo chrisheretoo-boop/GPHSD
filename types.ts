@@ -7,7 +7,7 @@ export interface Business {
   location: string;
   hours: string;
   payment: string;
-  owner: string;
+  owner: string; // The username (ID)
   ownerName: string;
   ownerPos: string;
   ownerContact: string;
@@ -23,10 +23,14 @@ export interface Business {
   social: string;
   reviews: Review[];
   featured?: boolean;
+  order?: number;
+  verified?: boolean;
 }
 
 export interface Review {
-  name: string;
+  name: string; // The username of the reviewer
+  displayName?: string; // Optional cached name
+  photoURL?: string; // Optional cached photo
   rating: number;
   text: string;
   date: number;
@@ -47,9 +51,14 @@ export interface SupportTicket {
 export interface User {
   id: string;
   username: string;
-  role: 'admin' | 'business';
+  role: 'admin' | 'business' | 'moderator';
   email?: string;
+  displayName?: string;
+  bio?: string;
+  profileImg?: string;
+  contactInfo?: string;
   created?: number;
+  password?: string;
 }
 
 export type ViewState = 'home' | 'admin' | 'profile' | 'owner';

@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GPHS Directory</title>
+    <title>GPHS Directory | Student Marketplace</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Teko:wght@300;500;700&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <script>
       tailwind.config = {
         darkMode: 'class',
@@ -13,31 +13,76 @@
           extend: {
             colors: {
               gold: {
-                400: '#FFD700',
-                500: '#E6C200',
-                600: '#B39700',
+                DEFAULT: '#D4AF37',
+                400: '#F4CF63',
+                500: '#D4AF37',
+                600: '#AA8A2E',
               },
               zinc: {
-                850: '#1f1f22',
-                900: '#111111',
-                950: '#090909',
+                850: '#141414',
+                900: '#0A0A0A',
+                950: '#050505',
               }
             },
             fontFamily: {
               sans: ['Inter', 'sans-serif'],
-              display: ['Teko', 'sans-serif'],
+              display: ['Montserrat', 'sans-serif'],
             },
             animation: {
-              'bounce-slow': 'bounce 3s infinite',
+              'fade-in': 'fadeIn 0.5s ease-out forwards',
+              'float': 'float 6s ease-in-out infinite',
+              'gradient': 'gradient 8s ease infinite',
+            },
+            keyframes: {
+              fadeIn: {
+                '0%': { opacity: '0', transform: 'translateY(10px)' },
+                '100%': { opacity: '1', transform: 'translateY(0)' },
+              },
+              float: {
+                '0%, 100%': { transform: 'translateY(0)' },
+                '50%': { transform: 'translateY(-20px)' },
+              },
+              gradient: {
+                '0%, 100%': { 'background-size': '200% 200%', 'background-position': 'left center' },
+                '50%': { 'background-size': '200% 200%', 'background-position': 'right center' },
+              }
             }
           }
         }
       }
     </script>
     <style>
-      body { background-color: #090909; color: white; }
-      .glass { background: rgba(17, 17, 17, 0.8); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(255,255,255,0.05); }
+      body { 
+        background-color: #050505; 
+        color: white; 
+        -webkit-font-smoothing: antialiased;
+      }
+      .glass { 
+        background: rgba(10, 10, 10, 0.7); 
+        backdrop-filter: blur(16px); 
+        border: 1px solid rgba(255, 255, 255, 0.05); 
+      }
+      .glass-card {
+        background: rgba(20, 20, 20, 0.4);
+        backdrop-filter: blur(8px);
+        border: 1px solid rgba(255, 255, 255, 0.03);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .glass-card:hover {
+        border-color: rgba(212, 175, 55, 0.3);
+        background: rgba(20, 20, 20, 0.6);
+        transform: translateY(-4px);
+      }
+      .text-gradient {
+        background: linear-gradient(to right, #F4CF63, #D4AF37, #AA8A2E);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
       .scrollbar-hide::-webkit-scrollbar { display: none; }
+      .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+      .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+      .custom-scrollbar::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+      .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #444; }
     </style>
 <script type="importmap">
 {

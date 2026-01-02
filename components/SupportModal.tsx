@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Send, MessageSquare, AlertCircle, CheckCircle, LifeBuoy } from 'lucide-react';
+import { X, Send, MessageSquare, AlertCircle, CheckCircle, LifeBuoy, Sparkles } from 'lucide-react';
 import { db } from '../firebase';
 import { collection, addDoc } from 'firebase/firestore';
 
@@ -40,7 +40,7 @@ export const SupportModal: React.FC<Props> = ({ onClose }) => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fade-in">
-       <div className="bg-zinc-900 w-full max-w-md rounded-2xl border border-gold-500/30 shadow-[0_0_50px_rgba(255,215,0,0.1)] overflow-hidden flex flex-col max-h-[90vh]">
+       <div className="bg-zinc-900 w-full max-w-md rounded-2xl border border-gold-500/30 shadow-[0_0_50px_rgba(255,215,0,0.1)] overflow-hidden flex flex-col max-h-[90vh] relative">
           {/* Header */}
           <div className="p-6 border-b border-white/10 flex justify-between items-center bg-zinc-950">
             <div>
@@ -118,9 +118,17 @@ export const SupportModal: React.FC<Props> = ({ onClose }) => {
                     disabled={loading}
                     className="w-full bg-gold-400 text-black font-bold p-4 rounded-lg uppercase tracking-widest hover:bg-white hover:scale-[1.02] active:scale-[0.98] transition disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-gold-400/20 flex items-center justify-center gap-2"
                 >
-                    {loading ? 'Sending...' : <><Send size={18}/> Submit Ticket</>}
+                    <Send size={18}/> Submit Ticket
                 </button>
             </form>
+          )}
+
+          {/* Loading Overlay */}
+          {loading && (
+            <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-zinc-950/90 backdrop-blur-sm animate-fade-in">
+                <Sparkles size={48} className="text-gold-400 animate-pulse mb-4" />
+                <p className="text-zinc-500 text-xs font-black uppercase tracking-widest">Processing...</p>
+            </div>
           )}
        </div>
     </div>

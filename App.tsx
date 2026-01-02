@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ViewState, Business, SupportTicket, User as UserType } from './types';
-import { db, getBusinesses, getFeaturedBusiness, getSupportTickets, updateTicketStatus, getUsers, deleteUser, seedDatabase, updateUserPassword } from './firebase';
+// Fixed: Removed 'seedDatabase' from imports as it is not exported from firebase.ts
+import { db, getBusinesses, getFeaturedBusiness, getSupportTickets, updateTicketStatus, getUsers, deleteUser, updateUserPassword, updateUserProfile, uploadImage } from './firebase';
 import { collection, query, where, getDocs, deleteDoc, doc } from 'firebase/firestore';
 import { EditBusinessModal } from './components/EditBusinessModal';
 import { CreateBusinessModal } from './components/CreateBusinessModal';
@@ -9,120 +10,57 @@ import { LoginModal } from './components/LoginModal';
 import { SupportModal } from './components/SupportModal';
 import { ReplyModal } from './components/ReplyModal';
 import { PolicyModal } from './components/PolicyModal';
-import { Search, ShoppingBag, ShieldCheck, LogOut, LayoutDashboard, User, Menu, X, Star, ArrowRight, Instagram, Twitter, Facebook, LifeBuoy, Store, CheckCircle, Clock, Users, Trash2, Reply, Settings, Key, Eye, Lock, EyeOff, UserPlus, AlertTriangle, MapPin, Mail, Phone, Linkedin, Send, Music2, Loader2, Filter } from 'lucide-react';
+import { AdminDashboard } from './components/AdminDashboard';
+import { Search, ShieldCheck, LogOut, LayoutDashboard, User, X, Star, ArrowRight, Instagram, Twitter, Facebook, LifeBuoy, Store, CheckCircle, Clock, Users, Trash2, Reply, Settings, Key, Eye, UserPlus, MapPin, Mail, Phone, Linkedin, Send, Music2, Loader2, ChevronRight, Sparkles, EyeOff, AlertTriangle, ExternalLink, Plus, Camera, Upload, Rocket, BadgeCheck } from 'lucide-react';
 
-// --- COMPONENTS ---
+// --- SHARED ADMIN COMPONENTS ---
 
-// 0. NEW: Dedicated Delete Confirmation Modal
 const DeleteConfirmationModal = ({ title, message, onConfirm, onCancel, loading }: { title: string, message: string, onConfirm: () => void, onCancel: () => void, loading: boolean }) => (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-fade-in">
-        <div className="bg-zinc-900 w-full max-w-md rounded-2xl border border-red-500/30 shadow-[0_0_50px_rgba(220,38,38,0.2)] p-6">
-            <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500">
+        <div className="bg-zinc-900 w-full max-w-md rounded-2xl border border-red-500/30 shadow-2xl p-8">
+            <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6 text-red-500">
                 <Trash2 size={32} />
             </div>
             <h3 className="text-2xl font-display text-white text-center mb-2 uppercase tracking-wide">{title}</h3>
-            <p className="text-zinc-400 text-center mb-8">{message}</p>
-            
-            <div className="flex gap-3">
-                <button 
-                    onClick={onCancel}
-                    disabled={loading}
-                    className="flex-1 py-3 rounded-lg bg-zinc-800 text-zinc-300 font-bold uppercase text-sm hover:bg-zinc-700 transition"
-                >
-                    Cancel
-                </button>
-                <button 
-                    onClick={onConfirm}
-                    disabled={loading}
-                    className="flex-1 py-3 rounded-lg bg-red-600 text-white font-bold uppercase text-sm hover:bg-red-500 transition flex items-center justify-center gap-2"
-                >
-                    {loading ? <Loader2 size={16} className="animate-spin"/> : 'Yes, Delete'}
+            <p className="text-zinc-500 text-center mb-10 text-sm leading-relaxed">{message}</p>
+            <div className="flex gap-4">
+                <button onClick={onCancel} disabled={loading} className="flex-1 py-4 rounded-xl bg-zinc-800 text-zinc-400 font-black uppercase text-[10px] tracking-widest hover:bg-zinc-700 transition">Cancel</button>
+                <button onClick={onConfirm} disabled={loading} className="flex-1 py-4 rounded-xl bg-red-600 text-white font-black uppercase text-[10px] tracking-widest hover:bg-red-500 transition flex items-center justify-center gap-2 shadow-xl shadow-red-600/20">
+                    {loading ? <Loader2 size={16} className="animate-spin"/> : 'Confirm Delete'}
                 </button>
             </div>
         </div>
     </div>
 );
 
-// Change Password Modal
-const ChangePasswordModal = ({ user, onClose, onSuccess }: { user: {id: string, source: 'users'|'applications', name: string}, onClose: () => void, onSuccess: () => void }) => {
-    const [pass, setPass] = useState('');
-    const [loading, setLoading] = useState(false);
+// --- CORE APP COMPONENTS ---
 
-    const handleSave = async () => {
-        if (!pass) return;
-        setLoading(true);
-        try {
-            await updateUserPassword(user.id, pass, user.source);
-            onSuccess();
-        } catch (e) {
-            console.error(e);
-            alert("Failed to update password.");
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    return (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
-            <div className="bg-zinc-900 w-full max-w-sm rounded-xl border border-zinc-700 p-6 shadow-2xl">
-                <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-display text-xl text-white uppercase tracking-wider">Change Password</h3>
-                    <button onClick={onClose}><X size={20} className="text-zinc-500 hover:text-white"/></button>
-                </div>
-                <p className="text-zinc-400 text-sm mb-6">Enter a new password for <span className="text-gold-400 font-bold">{user.name}</span></p>
-                
-                <div className="space-y-4">
-                    <div>
-                        <label className="text-xs font-bold text-zinc-500 uppercase">New Password</label>
-                        <input 
-                            type="text" 
-                            autoFocus
-                            value={pass} 
-                            onChange={e => setPass(e.target.value)}
-                            className="w-full bg-black border border-zinc-800 rounded p-3 text-white focus:border-gold-400 outline-none mt-1"
-                            placeholder="Type new password..."
-                        />
-                    </div>
-                    
-                    <button 
-                        onClick={handleSave} 
-                        disabled={loading || !pass}
-                        className="w-full py-3 rounded bg-gold-400 text-black font-bold uppercase text-sm hover:bg-white transition disabled:opacity-50 flex justify-center items-center gap-2"
-                    >
-                        {loading ? 'Updating...' : <><Key size={16}/> Update Password</>}
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-// 1. NAVBAR
-const Navbar = ({ onNav, user, onLogout, onLoginClick, onRegisterClick }: { onNav: (v: ViewState) => void, user: any, onLogout: () => void, onLoginClick: () => void, onRegisterClick: () => void }) => (
-  <nav className="fixed top-0 w-full z-40 bg-black/80 backdrop-blur-md h-24 flex items-center justify-between px-6 lg:px-12 border-b border-white/5 shadow-2xl transition-all">
+const Navbar = ({ onNav, user, onLogout, onLoginClick, onRegisterClick }: any) => (
+  <nav className="fixed top-0 w-full z-40 h-20 glass flex items-center justify-between px-6 lg:px-16 transition-all">
     <div className="flex items-center gap-2 cursor-pointer group" onClick={() => onNav('home')}>
-      <div className="font-display text-3xl font-bold tracking-wider text-white group-hover:text-gold-400 transition-colors duration-300">
-        GPHS <span className="text-gold-400 group-hover:text-white transition-colors duration-300">DIRECTORY</span>
+      <div className="font-display text-2xl font-black tracking-tighter text-white">
+        GPHS<span className="text-gold font-light tracking-widest ml-1 opacity-80">DIRECTORY</span>
       </div>
     </div>
-    <div className="flex items-center gap-4">
-      <button onClick={onRegisterClick} className="hidden sm:flex items-center gap-2 px-6 py-2.5 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 hover:border-gold-400/50 hover:text-gold-400 transition text-xs font-bold uppercase tracking-widest">
-         <UserPlus size={16}/> List Your Business
+    <div className="flex items-center gap-3 lg:gap-6">
+      <button onClick={onRegisterClick} className="hidden sm:flex items-center gap-2 text-zinc-400 hover:text-white transition text-[10px] font-bold uppercase tracking-[0.2em]">
+         <UserPlus size={14}/> List Business
       </button>
+      <div className="h-4 w-px bg-white/10 hidden sm:block"></div>
       {user ? (
-        <>
+        <div className="flex items-center gap-3">
           {(user.role === 'admin' || user.role === 'moderator') && (
-            <button onClick={() => onNav('admin')} className="hidden md:flex items-center gap-2 px-5 py-2.5 rounded-full border border-zinc-700 hover:border-gold-400 hover:text-gold-400 transition text-xs font-bold uppercase tracking-widest">
-              <LayoutDashboard size={16} /> Admin
+            <button onClick={() => onNav('admin')} className="p-2 text-zinc-400 hover:text-gold transition" title="Admin Portal">
+              <LayoutDashboard size={20} />
             </button>
           )}
-          <button onClick={() => onNav('owner')} className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-gold-400 text-black font-bold uppercase hover:bg-white transition text-xs tracking-widest">
-             <User size={16} /> My Business
+          <button onClick={() => onNav('owner')} className="flex items-center gap-2 px-4 py-2 rounded-full glass border-gold/20 text-gold text-[10px] font-bold uppercase tracking-widest hover:bg-gold hover:text-black transition">
+             <User size={14} /> Account
           </button>
-          <button onClick={onLogout} className="p-3 bg-zinc-900 rounded-full text-zinc-500 hover:text-red-500 hover:bg-red-950 transition"><LogOut size={18}/></button>
-        </>
+          <button onClick={onLogout} className="text-zinc-500 hover:text-red-500 transition"><LogOut size={18}/></button>
+        </div>
       ) : (
-        <button onClick={onLoginClick} className="px-8 py-2.5 border border-gold-400/30 text-gold-400 rounded-full text-xs font-bold uppercase hover:bg-gold-400 hover:text-black transition tracking-widest shadow-[0_0_20px_rgba(255,215,0,0.1)]">
+        <button onClick={onLoginClick} className="px-6 py-2 bg-gold text-black rounded-full text-[10px] font-black uppercase tracking-[0.2em] hover:bg-white transition-all shadow-lg shadow-gold/10">
           Login
         </button>
       )}
@@ -130,141 +68,184 @@ const Navbar = ({ onNav, user, onLogout, onLoginClick, onRegisterClick }: { onNa
   </nav>
 );
 
-// 2. HERO
-const Hero = ({ featured, onSelect, onRegister }: { featured: Business | null, onSelect: (b: Business) => void, onRegister: () => void }) => (
-  <section className="relative pt-48 pb-32 px-6 overflow-hidden bg-zinc-950">
-    {/* Animated Background Elements */}
-    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[500px] bg-gold-400/10 rounded-full blur-[120px] pointer-events-none"></div>
-    <div className="absolute bottom-0 right-0 w-[800px] h-[600px] bg-blue-500/5 rounded-full blur-[100px] pointer-events-none"></div>
-
-    <div className="max-w-7xl mx-auto relative z-10 flex flex-col md:flex-row items-center gap-12">
-      {/* Text Content */}
-      <div className="flex-1 text-center md:text-left">
-          {/* Logo / Mascot Restoration */}
-          <div className="w-24 h-24 mx-auto md:mx-0 mb-8 rounded-2xl border border-gold-400/20 bg-zinc-900/50 backdrop-blur-md flex items-center justify-center shadow-[0_0_40px_rgba(255,215,0,0.1)] animate-fade-in">
-             <img src="mascot.png" className="w-16 h-16 object-contain" onError={(e) => e.currentTarget.style.display='none'} />
-          </div>
-
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-zinc-900 border border-zinc-800 text-gold-400 text-xs font-bold uppercase tracking-widest mb-8 animate-fade-in">
-              <span className="w-2 h-2 rounded-full bg-gold-400 animate-pulse"></span>
-              Official Student Marketplace
-          </div>
-          <h1 className="font-display text-7xl md:text-8xl font-bold text-white mb-6 leading-[0.9] tracking-tighter">
-            GPHS STUDENT <br/>
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-gold-400 to-yellow-200">BUSINESS DIRECTORY</span>
-          </h1>
-          <p className="text-zinc-400 text-lg md:text-xl max-w-xl mb-10 font-light leading-relaxed">
-            The premier directory for student-run businesses at GPHS. Discover unique services, crafts, and food right on campus.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start">
-             <button className="px-8 py-4 bg-gold-400 text-black font-display text-xl uppercase rounded-lg hover:bg-white hover:scale-105 transition shadow-[0_0_30px_rgba(255,215,0,0.3)]">
-                Browse Directory
-             </button>
-             <button onClick={onRegister} className="px-8 py-4 bg-zinc-900 border border-zinc-800 text-white font-display text-xl uppercase rounded-lg hover:bg-zinc-800 transition">
-                Start Selling
-             </button>
-          </div>
-      </div>
-
-      {/* Featured Card */}
-      {featured && (
-        <div className="flex-1 w-full max-w-lg perspective-1000">
-           <div 
-             onClick={() => onSelect(featured)} 
-             className="relative bg-zinc-900/60 backdrop-blur-xl border border-white/10 rounded-3xl p-4 shadow-2xl group cursor-pointer hover:border-gold-400/50 transition-all duration-500 transform hover:-rotate-1 hover:scale-[1.02]"
-           >
-              {/* Image Container */}
-              <div className="relative aspect-[4/3] rounded-2xl overflow-hidden mb-4 bg-black">
-                 <div className="absolute top-4 left-4 z-20 bg-gold-400 text-black text-xs font-bold px-3 py-1 uppercase rounded-full tracking-wider shadow-lg">Featured Pick</div>
-                 <img src={featured.images[0] || featured.imageURL || 'mascot.png'} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 group-hover:scale-110 transition duration-700" />
-                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-80"></div>
-                 
-                 <div className="absolute bottom-4 left-4 right-4 z-20">
-                    <h3 className="font-display text-4xl text-white mb-1 drop-shadow-md">{featured.business}</h3>
-                    <p className="text-zinc-300 text-sm line-clamp-2 drop-shadow-sm">{featured.description}</p>
-                 </div>
-              </div>
-              
-              <div className="flex justify-between items-center px-2">
-                 <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center">
-                        <User size={14} className="text-zinc-400"/>
+const Advertisement = ({ onRegister }: { onRegister: () => void }) => (
+    <div className="w-full max-w-7xl mx-auto mb-16 animate-fade-in">
+        <div className="relative rounded-[2.5rem] overflow-hidden bg-zinc-900 border border-white/5 group">
+            <div className="absolute inset-0 bg-gradient-to-r from-gold/10 via-transparent to-purple-500/10 opacity-0 group-hover:opacity-100 transition duration-700"></div>
+            <div className="absolute -right-20 -top-20 w-96 h-96 bg-gold/5 rounded-full blur-[100px] pointer-events-none"></div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-12 p-10 md:p-16 relative z-10 items-center">
+                <div className="space-y-8">
+                    <div>
+                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-gold text-[10px] font-black uppercase tracking-widest mb-4">
+                            <Rocket size={12} /> Launch Your Brand
+                        </div>
+                        <h2 className="font-display text-4xl md:text-5xl text-white uppercase leading-[0.9] tracking-tight">
+                            Is Your Business <br /> <span className="text-transparent bg-clip-text bg-gradient-to-r from-gold to-yellow-200">On The Map?</span>
+                        </h2>
                     </div>
-                    <div className="text-xs">
-                        <div className="text-zinc-500 uppercase">Owner</div>
-                        <div className="text-white font-bold">{featured.ownerName || featured.owner}</div>
-                    </div>
-                 </div>
-                 <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center text-gold-400 group-hover:bg-gold-400 group-hover:text-black transition">
-                    <ArrowRight size={20} className="-rotate-45 group-hover:rotate-0 transition duration-300"/>
-                 </div>
-              </div>
-           </div>
-        </div>
-      )}
-    </div>
-  </section>
-);
-
-// 3. GRID
-const Grid = ({ businesses, onSelect }: { businesses: Business[], onSelect: (b: Business) => void }) => (
-  <div className="max-w-7xl mx-auto px-6 py-24 bg-zinc-950">
-    <div className="flex flex-col md:flex-row items-end justify-between gap-6 mb-16">
-      <div>
-         <h2 className="font-display text-5xl md:text-6xl text-white mb-2">EXPLORE <span className="text-zinc-600">MARKET</span></h2>
-         <p className="text-zinc-400">Find businesses, services, and creative works from students.</p>
-      </div>
-      <div className="w-full md:w-auto relative group">
-         <input type="text" placeholder="Search for anything..." className="w-full md:w-80 bg-zinc-900 border border-zinc-800 rounded-full py-3 pl-12 pr-6 text-white focus:border-gold-400 focus:outline-none transition" />
-         <Search className="absolute left-4 top-3.5 text-zinc-500 group-focus-within:text-gold-400 transition" size={18} />
-      </div>
-    </div>
-    
-    {businesses.length === 0 ? (
-       <div className="text-center py-32 border border-dashed border-zinc-800 rounded-3xl bg-zinc-900/30">
-           <div className="w-20 h-20 bg-zinc-900 rounded-full flex items-center justify-center mx-auto mb-6">
-              <Store size={32} className="text-zinc-600"/>
-           </div>
-           <p className="text-3xl font-display text-white mb-2">No businesses active.</p>
-           <p className="text-zinc-500">Check back later or register your own!</p>
-       </div>
-    ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-        {businesses.map((b) => {
-            // Robust expiration check
-            const isExpired = b.subscriptionEnd && Number(b.subscriptionEnd) < Date.now();
-            return (
-            <div key={b.id} onClick={() => onSelect(b)} className="group bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden hover:-translate-y-2 hover:shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)] hover:border-gold-400/30 transition duration-500 cursor-pointer flex flex-col h-full">
-                {/* Image Area */}
-                <div className="h-64 overflow-hidden relative">
-                    <div className="absolute inset-0 bg-gradient-to-t from-zinc-900 via-transparent to-transparent opacity-60 z-10"/>
-                    
-                    <div className="absolute top-4 right-4 z-20 flex flex-col gap-2">
-                         {b.featured && <div className="bg-gold-400 text-black p-2 rounded-full shadow-lg"><Star size={14} fill="black" /></div>}
-                         {isExpired && <div className="bg-red-500 text-white px-3 py-1 text-xs font-bold rounded-full shadow-lg uppercase tracking-wide">Expired</div>}
-                    </div>
-
-                    <img src={b.images[0] || b.imageURL || ''} className="w-full h-full object-cover group-hover:scale-110 transition duration-700" />
-                    
-                    <div className="absolute bottom-0 left-0 p-6 z-20 w-full">
-                        <div className="text-gold-400 text-xs font-bold uppercase tracking-widest mb-1">{b.category}</div>
-                        <h3 className="font-display text-3xl text-white leading-none group-hover:text-gold-400 transition">{b.business}</h3>
+                    <p className="text-zinc-500 text-lg leading-relaxed max-w-md font-medium">
+                        Join the official GPHS Directory. Gain visibility, connect with fellow students, and grow your customer base instantly.
+                    </p>
+                    <div className="flex flex-wrap gap-4">
+                        <button onClick={onRegister} className="px-10 py-4 bg-white text-black rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-gold transition shadow-xl shadow-white/5 transform active:scale-95 flex items-center gap-2">
+                            <Plus size={16}/> Start Listing
+                        </button>
                     </div>
                 </div>
+                <div className="relative aspect-video rounded-3xl overflow-hidden border border-white/10 shadow-2xl group-hover:shadow-gold/5 transition duration-500">
+                    <img 
+                        src="https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?q=80&w=2670&auto=format&fit=crop" 
+                        className="absolute inset-0 w-full h-full object-cover transition duration-700 group-hover:scale-105 grayscale-[20%] group-hover:grayscale-0" 
+                        alt="List your business" 
+                    />
+                    <div className="absolute inset-0 bg-black/40 group-hover:bg-transparent transition"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+);
 
-                {/* Info Area */}
-                <div className="p-6 pt-2 flex flex-col flex-1 border-t border-white/5 bg-zinc-900">
-                    <p className="text-zinc-400 text-sm line-clamp-2 mb-6 flex-1 leading-relaxed">{b.description}</p>
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-zinc-500 text-xs font-bold uppercase">
-                             {isExpired ? (
-                                <span className="text-red-500 flex items-center gap-2"><Clock size={14}/> Closed (Expired)</span>
-                             ) : (
-                                <span className="flex items-center gap-2"><Clock size={14}/> {b.status === 'approved' ? 'Open Now' : 'Closed'}</span>
-                             )}
+const Hero = ({ featured, onSelect, onRegister }: any) => {
+  const [motto, setMotto] = useState("Connecting the Gwynn Park High School community with the finest student-led businesses, crafts, and professional services.");
+
+  useEffect(() => {
+    fetch('https://v2.jokeapi.dev/joke/Any?safe-mode')
+      .then(res => res.json())
+      .then(data => {
+        if (data.error) return;
+        if (data.type === 'single') {
+          setMotto(data.joke);
+        } else if (data.type === 'twopart') {
+          setMotto(`${data.setup} ${data.delivery}`);
+        }
+      })
+      .catch(err => console.warn("Using default motto"));
+  }, []);
+
+  return (
+  <section className="relative min-h-[90vh] flex flex-col items-center justify-center pt-32 pb-20 px-6 bg-zinc-950">
+    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-6xl aspect-square bg-gold/5 rounded-full blur-[160px] pointer-events-none opacity-50"></div>
+    <div className="max-w-4xl mx-auto text-center relative z-10 mb-16">
+      <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-zinc-900/80 border border-white/5 text-gold-400 text-[10px] font-bold uppercase tracking-[0.3em] mb-8 animate-fade-in shadow-xl">
+          <Sparkles size={12}/> Discover Excellence
+      </div>
+      <h1 className="font-display text-6xl md:text-9xl font-black text-white mb-8 leading-[0.85] tracking-tighter uppercase animate-fade-in">
+        The Future of <br/>
+        <span className="text-gradient">Student Trade</span>
+      </h1>
+      <p className="text-zinc-500 text-lg md:text-xl max-w-2xl mx-auto mb-12 font-medium leading-relaxed opacity-0 animate-fade-in [animation-delay:200ms] min-h-[4rem] flex items-center justify-center">
+        {motto}
+      </p>
+      <div className="flex flex-col sm:flex-row gap-4 justify-center items-center opacity-0 animate-fade-in [animation-delay:400ms]">
+         <div className="relative group w-full sm:w-80">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600 group-focus-within:text-gold transition" size={18} />
+            <input 
+              type="text" 
+              placeholder="Search services..." 
+              className="w-full bg-zinc-900/50 border border-white/5 rounded-2xl py-4 pl-12 pr-6 text-white focus:border-gold/50 focus:outline-none transition-all shadow-2xl"
+            />
+         </div>
+         <button onClick={onRegister} className="px-10 py-4 bg-white text-black font-display text-lg font-black uppercase rounded-2xl hover:bg-gold transition-all transform hover:scale-105 active:scale-95">
+            Join the Market
+         </button>
+      </div>
+    </div>
+
+    {/* Advertisement placed inside Hero, above featured business */}
+    <div className="w-full max-w-7xl mx-auto relative z-10 opacity-0 animate-fade-in [animation-delay:500ms]">
+        <Advertisement onRegister={onRegister} />
+    </div>
+
+    {featured && (
+      <div className="w-full max-w-5xl mx-auto opacity-0 animate-fade-in [animation-delay:600ms]">
+         <div onClick={() => onSelect(featured)} className="relative glass-card rounded-[2rem] p-6 md:p-10 flex flex-col md:flex-row items-center gap-10 group cursor-pointer">
+            <div className="w-full md:w-1/2 aspect-[4/3] rounded-3xl overflow-hidden bg-black shadow-2xl">
+               <img src={featured.images[0] || featured.imageURL || 'mascot.png'} className="w-full h-full object-cover group-hover:scale-105 transition duration-1000" />
+            </div>
+            <div className="flex-1 space-y-4">
+               <div className="flex items-center gap-2 text-gold text-xs font-black uppercase tracking-widest">
+                  <Star size={14} fill="currentColor"/> Editor's Choice
+               </div>
+               <h2 className="font-display text-4xl md:text-6xl text-white leading-tight">{featured.business}</h2>
+               <p className="text-zinc-500 text-lg line-clamp-3 leading-relaxed">{featured.description}</p>
+               <div className="flex items-center gap-4 pt-4">
+                  <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-zinc-800 border border-white/10 flex items-center justify-center overflow-hidden">
+                          {featured.ownerImg ? <img src={featured.ownerImg} className="w-full h-full object-cover"/> : <User size={18} className="text-zinc-500"/>}
+                      </div>
+                      <div>
+                          <div className="text-[10px] text-zinc-600 font-black uppercase tracking-widest">Ownership</div>
+                          <div className="text-white font-bold">{featured.ownerName || featured.owner}</div>
+                      </div>
+                  </div>
+                  <ChevronRight className="ml-auto text-zinc-700 group-hover:text-gold transition group-hover:translate-x-2" size={32}/>
+               </div>
+            </div>
+         </div>
+      </div>
+    )}
+  </section>
+  );
+};
+
+const CategoryFilter = ({ active, onSelect }: any) => {
+  const categories = ['All', 'General', 'Food & Drink', 'Clothing', 'Services', 'Technology', 'Art & Design'];
+  return (
+    <div className="max-w-7xl mx-auto px-6 mb-12">
+      <div className="flex items-center gap-3 overflow-x-auto scrollbar-hide pb-4">
+        {categories.map(c => (
+          <button 
+            key={c}
+            onClick={() => onSelect(c)}
+            className={`px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap border ${active === c ? 'bg-white text-black border-white' : 'bg-zinc-900 text-zinc-500 border-white/5 hover:border-white/20 hover:text-white'}`}
+          >
+            {c}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const Grid = ({ businesses, onSelect }: any) => (
+  <div className="max-w-7xl mx-auto px-6 py-12">
+    {businesses.length === 0 ? (
+       <div className="text-center py-32 glass-card rounded-3xl">
+           <Store size={48} className="text-zinc-800 mx-auto mb-6"/>
+           <p className="text-2xl font-display text-zinc-500 uppercase">No active listings in this category</p>
+       </div>
+    ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10">
+        {businesses.map((b: any) => {
+            const isExpired = b.subscriptionEnd && Number(b.subscriptionEnd) < Date.now();
+            return (
+            <div key={b.id} onClick={() => onSelect(b)} className="glass-card rounded-[2.5rem] overflow-hidden group cursor-pointer flex flex-col h-full">
+                <div className="h-72 overflow-hidden relative">
+                    <div className="absolute top-6 right-6 z-20 flex gap-2">
+                         {b.verified && (
+                             <div className="bg-blue-500 text-white p-2 rounded-xl shadow-xl flex items-center justify-center">
+                                 <BadgeCheck size={14} fill="currentColor" className="text-white" />
+                             </div>
+                         )}
+                         {b.featured && <div className="bg-gold text-black p-2 rounded-xl shadow-xl"><Star size={14} fill="black" /></div>}
+                         {isExpired && <div className="bg-red-500 text-white px-3 py-1 text-[10px] font-black rounded-lg uppercase tracking-widest">Expired</div>}
+                    </div>
+                    <img src={b.images[0] || b.imageURL || ''} className="w-full h-full object-cover group-hover:scale-110 transition duration-700 grayscale-[20%] group-hover:grayscale-0" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-transparent to-transparent opacity-80" />
+                    <div className="absolute bottom-6 left-6 z-20">
+                        <div className="text-gold text-[10px] font-black uppercase tracking-[0.2em] mb-1">{b.category}</div>
+                        <h3 className="font-display text-3xl text-white group-hover:text-gold transition leading-none">{b.business}</h3>
+                    </div>
+                </div>
+                <div className="p-8 flex flex-col flex-1">
+                    <p className="text-zinc-500 text-sm line-clamp-2 mb-8 flex-1 leading-relaxed font-medium">{b.description}</p>
+                    <div className="flex items-center justify-between pt-6 border-t border-white/5">
+                        <div className="flex items-center gap-2 text-zinc-500 text-[10px] font-black uppercase tracking-widest">
+                             {isExpired ? <span className="text-red-500">Subscription Required</span> : 'Active Listing'}
                         </div>
-                        <span className="text-white text-sm font-bold bg-zinc-800 px-3 py-1 rounded-full border border-zinc-700 group-hover:border-gold-400/50 transition">
-                            {b.price || '$-$$$'}
+                        <span className="text-white text-xs font-bold bg-zinc-800 px-4 py-1.5 rounded-full border border-white/5">
+                            {b.price || '$-$$'}
                         </span>
                     </div>
                 </div>
@@ -275,463 +256,142 @@ const Grid = ({ businesses, onSelect }: { businesses: Business[], onSelect: (b: 
   </div>
 );
 
-// 3.5 CTA
-const JoinCTA = ({ onRegister }: { onRegister: () => void }) => (
-    <div className="max-w-7xl mx-auto px-6 py-20">
-        <div className="bg-gradient-to-r from-zinc-900 to-black border border-gold-500/20 rounded-2xl p-8 md:p-12 relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-8 shadow-2xl">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-gold-400/10 blur-3xl rounded-full -mr-32 -mt-32"></div>
-            <div className="absolute bottom-0 left-0 w-64 h-64 bg-gold-400/5 blur-3xl rounded-full -ml-32 -mb-32"></div>
-            
-            <div className="relative z-10 max-w-2xl">
-                <div className="inline-block px-3 py-1 mb-4 rounded-full bg-gold-400/10 border border-gold-400/30 text-gold-400 text-xs font-bold uppercase tracking-widest">
-                    For Students
-                </div>
-                <h2 className="font-display text-4xl md:text-5xl text-white mb-4">Let your business be seen by all of Gwynn Park</h2>
-                <p className="text-zinc-400 text-lg">
-                    Have a side hustle? Selling crafts, food, or services? 
-                    Join the official GPHS Directory to reach hundreds of students and staff instantly.
-                </p>
-                <div className="flex flex-wrap gap-4 mt-6 text-sm text-zinc-500">
-                    <span className="flex items-center gap-1"><CheckCircle size={16} className="text-green-500"/> $1 Weekly Fee</span>
-                    <span className="flex items-center gap-1"><CheckCircle size={16} className="text-green-500"/> Instant Exposure</span>
-                    <span className="flex items-center gap-1"><CheckCircle size={16} className="text-green-500"/> Manage Your Listing</span>
-                </div>
-            </div>
-            
-            <div className="relative z-10 shrink-0">
-                <button 
-                    onClick={onRegister}
-                    className="bg-gold-400 text-black font-display text-2xl uppercase px-8 py-4 rounded-xl hover:bg-white hover:scale-105 transition shadow-[0_0_20px_rgba(255,215,0,0.3)] flex items-center gap-2"
-                >
-                    Get Started <ArrowRight size={24}/>
-                </button>
-            </div>
+const Footer = ({ onNav, onLogin, onRegister, onSupport, onPolicy }: any) => (
+  <footer className="bg-zinc-950 pt-32 pb-16 px-6 border-t border-white/5">
+    <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-16 mb-24">
+      <div className="col-span-1 md:col-span-1">
+        <div className="font-display text-3xl font-black text-white uppercase tracking-tighter mb-8">
+          GPHS<span className="text-gold font-light opacity-50 ml-1">DIR</span>
         </div>
-    </div>
-);
-
-// 3.6 FOOTER
-const SocialIcon = ({ icon }: { icon: React.ReactNode }) => (
-  <div className="w-10 h-10 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-500 hover:bg-gold-400 hover:text-black hover:border-gold-400 transition cursor-pointer">
-    {icon}
-  </div>
-);
-
-const Footer = ({ onNav, onLogin, onRegister, onSupport }: any) => (
-  <footer className="bg-black border-t border-zinc-900 pt-24 pb-12 px-6">
-    <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-20">
-      <div className="space-y-6">
-        <div>
-           <h3 className="font-display text-3xl font-bold text-white uppercase tracking-wider">GPHS <span className="text-gold-400">DIRECTORY</span></h3>
-        </div>
-        <p className="text-zinc-500 text-sm leading-relaxed max-w-xs">
-          Supporting student entrepreneurs and building the next generation of business leaders. Shop local, support students.
+        <p className="text-zinc-600 text-sm leading-relaxed max-w-xs font-medium">
+          Empowering the next generation of entrepreneurs through a unified school marketplace.
         </p>
       </div>
-
       <div>
-        <h4 className="font-display text-xl text-white uppercase mb-6 tracking-wide">Quick Links</h4>
-        <ul className="space-y-4 text-sm font-medium text-zinc-500">
-          <li><button onClick={() => onNav('home')} className="hover:text-gold-400 transition">Home</button></li>
-          <li><button onClick={onRegister} className="hover:text-gold-400 transition">List Your Business</button></li>
-          <li><button onClick={onLogin} className="hover:text-gold-400 transition">Login</button></li>
-          <li><button className="hover:text-gold-400 transition">About Us</button></li>
-          <li><button onClick={onSupport} className="hover:text-gold-400 transition">Support</button></li>
+        <h4 className="text-white text-[10px] font-black uppercase tracking-[0.3em] mb-8">Navigation</h4>
+        <ul className="space-y-4 text-sm font-bold text-zinc-500">
+          <li><button onClick={() => onNav('home')} className="hover:text-gold transition text-left">Marketplace</button></li>
+          <li><button onClick={onRegister} className="hover:text-gold transition text-left">List Business</button></li>
+          <li><button onClick={onLogin} className="hover:text-gold transition text-left">Portal Login</button></li>
+          <li><button onClick={onSupport} className="hover:text-gold transition text-left">Get Help</button></li>
+          <li><button onClick={() => onPolicy('terms')} className="hover:text-gold transition text-left">Terms of Service</button></li>
+          <li><button onClick={() => onPolicy('privacy')} className="hover:text-gold transition text-left">Privacy Policy</button></li>
         </ul>
       </div>
-
       <div>
-        <h4 className="font-display text-xl text-white uppercase mb-6 tracking-wide">Contact</h4>
-        <ul className="space-y-4 text-sm text-zinc-500">
-          <li className="flex items-start gap-3">
-             <MapPin className="text-gold-400 shrink-0 mt-0.5" size={18} />
-             <span>Gwynn Park High School</span>
-          </li>
-          <li className="flex items-start gap-3">
-             <Mail className="text-gold-400 shrink-0 mt-0.5" size={18} />
-             <a href="mailto:christopher-alas@pgcps.org" className="hover:text-white transition">christopher-alas@pgcps.org</a>
-          </li>
-          <li className="flex items-start gap-3">
-             <Phone className="text-gold-400 shrink-0 mt-0.5" size={18} />
-             <span>(240) 623-8773</span>
-          </li>
+        <h4 className="text-white text-[10px] font-black uppercase tracking-[0.3em] mb-8">Connect</h4>
+        <ul className="space-y-4 text-sm font-bold text-zinc-500">
+          <li className="flex items-center gap-3 text-left"><MapPin size={16} className="text-gold opacity-50 shrink-0"/> Gwynn Park High</li>
+          <li className="flex items-center gap-3 text-left"><Mail size={16} className="text-gold opacity-50 shrink-0"/> support@gphs.edu</li>
+          <li className="flex items-center gap-3 text-left"><Phone size={16} className="text-gold opacity-50 shrink-0"/> (240) 623-8773</li>
         </ul>
       </div>
-
       <div>
-        <h4 className="font-display text-xl text-white uppercase mb-6 tracking-wide">Newsletter</h4>
-        <p className="text-zinc-500 text-sm mb-4">Subscribe for weekly deals.</p>
-        <div className="flex">
-           <input type="email" placeholder="Email Address" className="bg-zinc-900 border border-zinc-800 text-white px-4 py-3 rounded-l w-full text-sm focus:outline-none focus:border-gold-400 placeholder-zinc-600" />
-           <button className="bg-gold-400 text-black px-4 rounded-r hover:bg-white transition flex items-center justify-center"><Send size={18} /></button>
+        <h4 className="text-white text-[10px] font-black uppercase tracking-[0.3em] mb-8">Updates</h4>
+        <p className="text-zinc-600 text-xs mb-6 font-medium">Join our weekly digest for new student drops.</p>
+        <div className="flex gap-2">
+           <input type="email" placeholder="Email" className="bg-zinc-900 border border-white/5 text-white px-5 py-3 rounded-2xl w-full text-xs focus:outline-none focus:border-gold/30 placeholder-zinc-700" />
+           <button className="bg-gold text-black p-3 rounded-2xl hover:bg-white transition flex items-center justify-center"><Send size={18} /></button>
         </div>
       </div>
     </div>
-
-    <div className="max-w-7xl mx-auto border-t border-zinc-900 pt-8 flex flex-col md:flex-row justify-between items-center gap-6">
-       <div className="text-zinc-600 text-sm">© 2025-2026 GPHS Student Directory. All Rights Reserved.</div>
+    <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8 opacity-50 pt-12 border-t border-white/5">
+       <div className="text-zinc-600 text-[10px] font-black uppercase tracking-widest">© 2025 GPHS Student Directory</div>
        <div className="flex gap-4">
-          <SocialIcon icon={<Instagram size={18}/>} />
-          <SocialIcon icon={<Twitter size={18}/>} />
-          <SocialIcon icon={<Music2 size={18}/>} /> 
-          <SocialIcon icon={<Linkedin size={18}/>} />
+          <div className="w-10 h-10 rounded-xl glass flex items-center justify-center text-zinc-500 hover:text-gold transition cursor-pointer"><Instagram size={18}/></div>
+          <div className="w-10 h-10 rounded-xl glass flex items-center justify-center text-zinc-500 hover:text-gold transition cursor-pointer"><Twitter size={18}/></div>
+          <div className="w-10 h-10 rounded-xl glass flex items-center justify-center text-zinc-500 hover:text-gold transition cursor-pointer"><Music2 size={18}/></div>
+          <div className="w-10 h-10 rounded-xl glass flex items-center justify-center text-zinc-500 hover:text-gold transition cursor-pointer"><Linkedin size={18}/></div>
        </div>
     </div>
   </footer>
 );
 
-// 4. REWRITTEN ADMIN DASHBOARD
-const AdminDashboard = ({ onExit, businesses, onRefresh }: { onExit: () => void, businesses: Business[], onRefresh: () => Promise<void> | void }) => {
-  const [selected, setSelected] = useState<Business | null>(null);
-  const [activeTab, setActiveTab] = useState<'businesses' | 'tickets' | 'users'>('businesses');
-  const [tickets, setTickets] = useState<SupportTicket[]>([]);
-  const [users, setUsers] = useState<any[]>([]); 
-  const [replyTicket, setReplyTicket] = useState<SupportTicket | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  
-  // New Deletion State
-  const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean, title: string, message: string, onConfirm: () => any, loading: boolean } | null>(null);
+// --- GLOBAL IDENTITY COMPONENT ---
 
-  // Password Management States
-  const [visiblePasswords, setVisiblePasswords] = useState<Set<string>>(new Set());
-  const [editingPasswordUser, setEditingPasswordUser] = useState<{id: string, source: 'users'|'applications', name: string} | null>(null);
+const GlobalProfileEditor = ({ user, onUpdate }: any) => {
+    const [formData, setFormData] = useState(user);
+    const [loading, setLoading] = useState(false);
+    const [uploading, setUploading] = useState(false);
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    // Force refresh on mount
-    onRefresh && onRefresh();
-    if (activeTab === 'tickets') {
-      getSupportTickets().then(setTickets);
-    } else if (activeTab === 'users') {
-      getUsers().then(setUsers);
-    }
-  }, [activeTab]);
+    const handleSave = async () => {
+        setLoading(true);
+        try {
+            await updateUserProfile(user.id, formData);
+            onUpdate(formData);
+            alert("Global Identity updated across all businesses and reviews!");
+        } catch (e) {
+            alert("Failed to update profile.");
+        } finally {
+            setLoading(false);
+        }
+    };
 
-  const handleResolveTicket = async (id: string) => {
-    if (!window.confirm("Mark this ticket as resolved?")) return;
-    setTickets(prev => prev.map(t => t.id === id ? { ...t, status: 'closed' } : t));
-    try {
-        await updateTicketStatus(id, 'closed');
-        const updated = await getSupportTickets();
-        setTickets(updated);
-    } catch(e) {
-        alert("Error updating ticket status");
-    }
-  };
+    const handlePhotoUpload = async (e: any) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setUploading(true);
+        try {
+            const url = await uploadImage(file);
+            setFormData({ ...formData, profileImg: url });
+        } catch (e) {
+            alert("Photo upload failed.");
+        } finally {
+            setUploading(false);
+        }
+    };
 
-  const refreshTickets = () => {
-      getSupportTickets().then(setTickets);
-  };
-  
-  const refreshUsers = () => {
-      getUsers().then(setUsers);
-  }
-
-  // --- ROBUST DELETION LOGIC ---
-  const triggerDeleteBusiness = (id: string, name: string) => {
-      setDeleteModal({
-          isOpen: true,
-          title: `Delete Business?`,
-          message: `Are you sure you want to delete "${name}"? This will permanently remove the listing, images, and reviews. This action cannot be undone.`,
-          loading: false,
-          onConfirm: async () => {
-              setDeleteModal(prev => prev ? { ...prev, loading: true } : null);
-              try {
-                  console.log("Attempting to delete business with ID:", id);
-                  await deleteDoc(doc(db, "applications", id));
-                  console.log("Delete successful");
-                  if (onRefresh) await onRefresh();
-                  setDeleteModal(null);
-              } catch (e: any) {
-                  console.error("Delete failed:", e);
-                  alert(`Failed to delete: ${e.message}`);
-                  setDeleteModal(null);
-              }
-          }
-      });
-  };
-
-  const triggerDeleteUser = (id: string, source: 'users' | 'applications', name: string) => {
-     setDeleteModal({
-          isOpen: true,
-          title: `Delete User?`,
-          message: `Are you sure you want to delete "${name}"? ${source === 'applications' ? 'Warning: This user owns a business. Deleting them will also delete their business listing.' : ''}`,
-          loading: false,
-          onConfirm: async () => {
-              setDeleteModal(prev => prev ? { ...prev, loading: true } : null);
-              try {
-                  console.log("Attempting to delete user:", id, source);
-                  await deleteUser(id, source);
-                  refreshUsers();
-                  if (onRefresh) await onRefresh();
-                  setDeleteModal(null);
-              } catch (e: any) {
-                  console.error("Delete failed:", e);
-                  alert(`Failed to delete: ${e.message}`);
-                  setDeleteModal(null);
-              }
-          }
-      });
-  };
-
-  const togglePasswordVisibility = (id: string) => {
-      const newSet = new Set(visiblePasswords);
-      if (newSet.has(id)) newSet.delete(id);
-      else newSet.add(id);
-      setVisiblePasswords(newSet);
-  };
-  
-  // Filtering logic
-  const filteredBusinesses = businesses.filter(b => b.business.toLowerCase().includes(searchTerm.toLowerCase()) || b.owner.toLowerCase().includes(searchTerm.toLowerCase()));
-
-  return (
-    <div className="pt-24 px-6 max-w-7xl mx-auto min-h-screen">
-       {/* Header */}
-       <div className="flex flex-col md:flex-row justify-between items-center mb-10 gap-4">
-         <div>
-             <h1 className="font-display text-5xl text-white uppercase mb-1">Admin Portal</h1>
-             <p className="text-zinc-500">Manage listings, users, and support requests.</p>
-         </div>
-         <div className="flex items-center gap-3">
-             <div className="relative">
-                 <Search className="absolute left-3 top-2.5 text-zinc-600" size={16}/>
-                 <input 
-                    type="text" 
-                    placeholder="Search..." 
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="bg-zinc-900 border border-zinc-800 rounded-full pl-10 pr-4 py-2 text-sm text-white focus:border-gold-400 focus:outline-none w-64"
-                 />
-             </div>
-             <button onClick={onExit} className="px-5 py-2 bg-zinc-800 rounded-full text-sm font-bold text-white hover:bg-zinc-700 transition">Exit</button>
-         </div>
-       </div>
-
-       {/* Tabs */}
-       <div className="flex gap-2 mb-8 border-b border-zinc-800">
-          {[
-              { id: 'businesses', icon: <Store size={18}/>, label: 'Businesses' },
-              { id: 'tickets', icon: <LifeBuoy size={18}/>, label: 'Support' },
-              { id: 'users', icon: <Users size={18}/>, label: 'Users' }
-          ].map((tab) => (
-              <button 
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)} 
-                className={`pb-4 px-6 text-sm font-bold uppercase tracking-wider transition border-b-2 flex items-center gap-2 ${activeTab === tab.id ? 'text-gold-400 border-gold-400' : 'text-zinc-500 border-transparent hover:text-white'}`}
-              >
-                {tab.icon} {tab.label}
-              </button>
-          ))}
-       </div>
-       
-       {/* TAB CONTENT: BUSINESSES */}
-       {activeTab === 'businesses' && (
-           <div className="grid grid-cols-1 gap-4">
-             {filteredBusinesses.map(b => {
-                const isExpired = b.subscriptionEnd && Number(b.subscriptionEnd) < Date.now();
-                return (
-                    <div key={b.id} className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex flex-col md:flex-row items-center gap-6 hover:border-zinc-700 transition group">
-                        {/* Image */}
-                        <div className="w-full md:w-20 h-20 bg-black rounded-lg overflow-hidden shrink-0 border border-zinc-800 relative">
-                            <img src={b.images[0] || b.imageURL || 'mascot.png'} className="w-full h-full object-cover" />
-                            {b.featured && <div className="absolute top-1 right-1 bg-gold-400 p-1 rounded-full"><Star size={8} className="text-black fill-black"/></div>}
+    return (
+        <div className="glass-card rounded-[2.5rem] p-10 mb-20 border border-gold/10 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-gold/5 blur-[80px] rounded-full -translate-y-1/2 translate-x-1/2"></div>
+            <div className="relative z-10 flex flex-col lg:flex-row gap-16">
+                <div className="flex flex-col items-center shrink-0">
+                    <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                        <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-gold/20 bg-zinc-900 flex items-center justify-center">
+                            {formData.profileImg ? <img src={formData.profileImg} className="w-full h-full object-cover"/> : <User size={48} className="text-zinc-700"/>}
                         </div>
-                        
-                        {/* Info */}
-                        <div className="flex-1 text-center md:text-left">
-                            <h3 className="text-xl font-display text-white">{b.business}</h3>
-                            <div className="text-zinc-500 text-sm flex flex-col md:flex-row gap-2 items-center md:items-start">
-                                <span className="flex items-center gap-1"><User size={12}/> {b.owner}</span>
-                                <span className="hidden md:inline">•</span>
-                                <span>{b.category}</span>
-                            </div>
-                        </div>
-
-                        {/* Status */}
-                        <div className="shrink-0 flex flex-col items-center">
-                            {isExpired ? (
-                                <span className="px-3 py-1 rounded-full bg-red-500/10 text-red-500 text-xs font-bold border border-red-500/20 uppercase">Expired</span>
-                            ) : (
-                                <span className={`px-3 py-1 rounded-full text-xs font-bold border uppercase ${b.status === 'approved' ? 'bg-green-500/10 text-green-500 border-green-500/20' : 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20'}`}>
-                                    {b.status}
-                                </span>
-                            )}
-                        </div>
-
-                        {/* Actions */}
-                        <div className="flex gap-2 shrink-0">
-                            <button 
-                                onClick={() => setSelected(b)}
-                                className="px-4 py-2 bg-zinc-800 hover:bg-white hover:text-black text-white rounded-lg text-xs font-bold uppercase transition border border-zinc-700"
-                            >
-                                Edit
-                            </button>
-                            <button 
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    triggerDeleteBusiness(b.id, b.business);
-                                }}
-                                className="px-3 py-2 bg-red-900/20 hover:bg-red-600 text-red-500 hover:text-white rounded-lg transition border border-red-900/30 group/del"
-                                title="Delete Permanently"
-                            >
-                                <Trash2 size={16} />
-                            </button>
+                        <div className="absolute inset-0 bg-black/60 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow-2xl">
+                             {uploading ? <Loader2 size={24} className="animate-spin text-gold"/> : <Camera size={24} className="text-white"/>}
                         </div>
                     </div>
-                );
-             })}
-             {filteredBusinesses.length === 0 && <div className="p-12 text-center text-zinc-500 bg-zinc-900/50 rounded-xl border border-dashed border-zinc-800">No businesses found.</div>}
-           </div>
-       )}
-       
-       {/* TAB CONTENT: TICKETS */}
-       {activeTab === 'tickets' && (
-           <div className="space-y-4">
-               {tickets.length === 0 ? (
-                    <div className="p-12 text-center text-zinc-500 bg-zinc-900/50 rounded-xl border border-dashed border-zinc-800">No tickets found.</div>
-               ) : (
-                   tickets.map(t => (
-                       <div key={t.id} className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 flex flex-col lg:flex-row gap-6 hover:border-zinc-700 transition">
-                            <div className="flex-1 space-y-2">
-                                <div className="flex items-center gap-3 mb-1">
-                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${t.status === 'open' ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20' : 'bg-green-500/10 text-green-500 border-green-500/20'}`}>
-                                        {t.status}
-                                    </span>
-                                    <span className="text-zinc-500 text-xs">{new Date(t.date).toLocaleDateString()}</span>
-                                    <span className="text-zinc-500 text-xs">•</span>
-                                    <span className="text-gold-400 text-xs uppercase font-bold">{t.category}</span>
-                                </div>
-                                <h3 className="text-white font-bold">{t.name} <span className="text-zinc-500 font-normal text-sm ml-2">&lt;{t.email}&gt;</span></h3>
-                                <div className="bg-black/30 p-4 rounded-lg border border-white/5 text-zinc-300 text-sm">
-                                    "{t.message}"
-                                </div>
-                                {t.reply && (
-                                    <div className="pl-4 border-l-2 border-gold-400/30 mt-2">
-                                        <p className="text-xs text-gold-400 mb-1">Admin Reply:</p>
-                                        <p className="text-zinc-400 text-sm">"{t.reply}"</p>
-                                    </div>
-                                )}
-                            </div>
-                            <div className="flex lg:flex-col gap-2 justify-center shrink-0">
-                                {t.status === 'open' && (
-                                    <>
-                                        <button onClick={() => setReplyTicket(t)} className="px-4 py-2 bg-blue-600/10 hover:bg-blue-600 text-blue-500 hover:text-white border border-blue-600/20 rounded-lg text-xs font-bold uppercase transition flex items-center justify-center gap-2">
-                                            <Reply size={14}/> Reply
-                                        </button>
-                                        <button onClick={() => handleResolveTicket(t.id)} className="px-4 py-2 bg-green-600/10 hover:bg-green-600 text-green-500 hover:text-white border border-green-600/20 rounded-lg text-xs font-bold uppercase transition flex items-center justify-center gap-2">
-                                            <CheckCircle size={14}/> Resolve
-                                        </button>
-                                    </>
-                                )}
-                            </div>
-                       </div>
-                   ))
-               )}
-           </div>
-       )}
-
-       {/* TAB CONTENT: USERS */}
-       {activeTab === 'users' && (
-           <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden overflow-x-auto">
-             <table className="w-full text-left min-w-[800px]">
-               <thead className="bg-zinc-950 text-zinc-500 text-xs uppercase font-bold">
-                 <tr>
-                   <th className="p-4">Username</th>
-                   <th className="p-4">Role</th>
-                   <th className="p-4">Password</th>
-                   <th className="p-4">Contact</th>
-                   <th className="p-4 text-right">Actions</th>
-                 </tr>
-               </thead>
-               <tbody className="divide-y divide-zinc-800">
-                 {users.filter(u => u.username.toLowerCase().includes(searchTerm.toLowerCase())).map(u => (
-                     <tr key={u.id} className="hover:bg-zinc-800/50 transition">
-                       <td className="p-4">
-                           <div className="font-bold text-white">{u.username}</div>
-                           {u.businessName && <div className="text-xs text-gold-400 flex items-center gap-1"><Store size={10}/> {u.businessName}</div>}
-                       </td>
-                       <td className="p-4">
-                           <span className={`px-2 py-1 rounded text-xs uppercase border ${u.role === 'admin' ? 'bg-red-900/20 text-red-500 border-red-900' : 'bg-zinc-800 text-zinc-400 border-zinc-700'}`}>
-                               {u.role}
-                           </span>
-                       </td>
-                       <td className="p-4 font-mono text-zinc-400 text-xs">
-                           <div className="flex items-center gap-2">
-                             <span className="bg-black px-2 py-1 rounded border border-zinc-800 min-w-[100px] text-center">
-                                {visiblePasswords.has(u.id) ? (u.password || 'N/A') : '••••••••'}
-                             </span>
-                             <button onClick={() => togglePasswordVisibility(u.id)} className="p-1 hover:text-gold-400 text-zinc-600 transition">
-                                {visiblePasswords.has(u.id) ? <EyeOff size={14}/> : <Eye size={14}/>}
-                             </button>
-                           </div>
-                       </td>
-                       <td className="p-4 text-zinc-400 text-sm">{u.email || 'N/A'}</td>
-                       <td className="p-4 text-right">
-                         <div className="flex justify-end gap-2">
-                             <button onClick={() => setEditingPasswordUser({id: u.id, source: u.source, name: u.username})} className="text-gold-400 hover:text-white font-bold text-xs uppercase border border-gold-400/30 hover:bg-gold-400/10 px-3 py-1 rounded transition flex items-center gap-1 cursor-pointer">
-                               <Key size={12}/> Edit Pass
-                             </button>
-                             <button 
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    triggerDeleteUser(u.id, u.source, u.username);
-                                }} 
-                                className="text-red-500 hover:text-white font-bold text-xs uppercase border border-red-500/30 hover:bg-red-500/10 px-3 py-1 rounded transition flex items-center gap-1 cursor-pointer"
-                             >
-                               <Trash2 size={12}/> Delete
-                             </button>
-                         </div>
-                       </td>
-                     </tr>
-                   ))}
-               </tbody>
-             </table>
-           </div>
-       )}
-       
-       {/* Modals */}
-       {selected && (
-         <EditBusinessModal 
-            business={selected} 
-            onClose={() => setSelected(null)} 
-            onRefresh={onRefresh}
-            isAdmin={true}
-         />
-       )}
-
-       {replyTicket && (
-           <ReplyModal 
-              ticket={replyTicket}
-              onClose={() => setReplyTicket(null)}
-              onRefresh={refreshTickets}
-           />
-       )}
-
-       {editingPasswordUser && (
-           <ChangePasswordModal 
-             user={editingPasswordUser}
-             onClose={() => setEditingPasswordUser(null)}
-             onSuccess={() => { refreshUsers(); setEditingPasswordUser(null); alert("Password updated successfully."); }}
-           />
-       )}
-
-       {/* Delete Confirmation Modal */}
-       {deleteModal && (
-           <DeleteConfirmationModal 
-               title={deleteModal.title}
-               message={deleteModal.message}
-               onConfirm={deleteModal.onConfirm}
-               onCancel={() => setDeleteModal(null)}
-               loading={deleteModal.loading}
-           />
-       )}
-    </div>
-  );
+                    <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handlePhotoUpload}/>
+                    <div className="mt-4 text-center">
+                        <div className="text-white font-black uppercase text-[10px] tracking-widest">{user.username}</div>
+                        <div className="text-gold text-[8px] font-black uppercase tracking-widest mt-1 opacity-60">Verified Owner</div>
+                    </div>
+                </div>
+                <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Public Display Name</label>
+                        <input value={formData.displayName || ''} onChange={e => setFormData({...formData, displayName: e.target.value})} className="w-full bg-black/40 border border-white/5 rounded-2xl p-4 text-white focus:border-gold/30 outline-none transition text-sm font-medium"/>
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Contact Point (Email/Phone)</label>
+                        <input value={formData.contactInfo || ''} onChange={e => setFormData({...formData, contactInfo: e.target.value})} className="w-full bg-black/40 border border-white/5 rounded-2xl p-4 text-white focus:border-gold/30 outline-none transition text-sm font-medium"/>
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                        <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Owner Bio (Appears on all listings)</label>
+                        <textarea value={formData.bio || ''} onChange={e => setFormData({...formData, bio: e.target.value})} rows={3} className="w-full bg-black/40 border border-white/5 rounded-2xl p-4 text-white focus:border-gold/30 outline-none transition text-sm font-medium resize-none"/>
+                    </div>
+                    <div className="md:col-span-2 flex justify-end">
+                        <button onClick={handleSave} disabled={loading || uploading} className="bg-white text-black px-10 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-gold transition-all transform active:scale-95 shadow-xl">
+                            {loading ? 'Updating Identity...' : 'Sync Global Profile'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
 };
+
+// --- APP CORE ---
 
 const App = () => {
   const [view, setView] = useState<ViewState>('home');
   const [user, setUser] = useState<any>(null);
   const [businesses, setBusinesses] = useState<Business[]>([]);
+  const [category, setCategory] = useState('All');
   const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null);
   const [editingBusiness, setEditingBusiness] = useState<Business | null>(null);
 
@@ -739,16 +399,20 @@ const App = () => {
   const [showRegister, setShowRegister] = useState(false);
   const [showCreateBiz, setShowCreateBiz] = useState(false);
   const [showSupport, setShowSupport] = useState(false);
+  const [policyType, setPolicyType] = useState<'privacy' | 'terms' | null>(null);
 
-  // Initial Data Load
-  useEffect(() => {
-    seedDatabase();
-    loadBusinesses();
-  }, []);
+  const [loading, setLoading] = useState(true);
+  const [processing, setProcessing] = useState<{ active: boolean; text: string }>({ active: false, text: 'Processing...' });
+
+  useEffect(() => { loadBusinesses(); }, []);
 
   const loadBusinesses = async () => {
     const data = await getBusinesses();
+    // Sort by order so that items with lower order index appear first.
+    // If order is undefined, it defaults to a large number to appear at the end.
+    data.sort((a, b) => (a.order ?? 10000) - (b.order ?? 10000));
     setBusinesses(data);
+    setLoading(false);
   };
 
   const handleLogin = (u: any) => {
@@ -758,187 +422,123 @@ const App = () => {
     if (u.role === 'admin') setView('admin');
   };
 
-  const handleLogout = () => {
-    setUser(null);
-    setView('home');
+  const handleBusinessClick = (b: Business) => {
+    setProcessing({ active: true, text: 'Accessing Portal...' });
+    setTimeout(() => {
+        setSelectedBusiness(b);
+        setView('profile');
+        setProcessing({ active: false, text: '' });
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, 1000);
   };
 
-  // Filter businesses for display
-  // Robust check: explicitly cast subscriptionEnd to Number to ensure correct comparison
-  const activeBusinesses = businesses.filter(b => 
-      b.status === 'approved' && 
-      (!b.subscriptionEnd || Number(b.subscriptionEnd) > Date.now())
-  );
-  
-  const featured = businesses.find(b => 
-      b.featured && 
-      (!b.subscriptionEnd || Number(b.subscriptionEnd) > Date.now())
-  ) || null;
+  const handleManageClick = (b: Business) => {
+    setProcessing({ active: true, text: 'Securing Connection...' });
+    setTimeout(() => {
+        setEditingBusiness(b);
+        setProcessing({ active: false, text: '' });
+    }, 1000);
+  };
 
-  // Check if current user has a business
-  const myBusiness = user ? businesses.find(b => b.owner === user.username) : null;
+  const handleBack = () => {
+      setProcessing({ active: true, text: 'Returning to Hub...' });
+      setTimeout(() => {
+          setView('home');
+          setProcessing({ active: false, text: '' });
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+      }, 800);
+  }
+
+  const featured = businesses.find(b => b.featured && (!b.subscriptionEnd || Number(b.subscriptionEnd) > Date.now())) || null;
+  const myBusinesses = user ? businesses.filter(b => b.owner === user.username) : [];
+
+  if (loading) {
+     return (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-zinc-950 text-gold-400 animate-fade-in">
+             <Sparkles size={48} className="animate-pulse mb-4"/>
+             <div className="text-xs font-black uppercase tracking-[0.3em] text-zinc-500">Initializing Directory...</div>
+        </div>
+     );
+  }
 
   return (
-    <div className="bg-zinc-950 min-h-screen text-white font-sans selection:bg-gold-400 selection:text-black">
-      <Navbar 
-         onNav={setView} 
-         user={user} 
-         onLogout={handleLogout} 
-         onLoginClick={() => setShowLogin(true)}
-         onRegisterClick={() => {
-             if(user) {
-                 if(myBusiness) setView('owner');
-                 else setShowCreateBiz(true);
-             } else {
-                 setShowRegister(true);
-             }
-         }}
-      />
+    <div className="bg-zinc-950 min-h-screen text-white font-sans selection:bg-gold selection:text-black scroll-smooth relative">
+      {view !== 'admin' && <Navbar onNav={setView} user={user} onLogout={() => { setUser(null); setView('home'); }} onLoginClick={() => setShowLogin(true)} onRegisterClick={() => user ? setView('owner') : setShowRegister(true)}/>}
 
       {view === 'home' && (
-        <>
-           <Hero 
-              featured={featured} 
-              onSelect={(b) => { setSelectedBusiness(b); setView('profile'); }}
-              onRegister={() => {
-                  if(user) {
-                      if(myBusiness) setView('owner');
-                      else setShowCreateBiz(true);
-                  } else {
-                      setShowRegister(true);
-                  }
-              }}
-           />
-           <JoinCTA 
-              onRegister={() => {
-                  if(user) {
-                      if(myBusiness) setView('owner');
-                      else setShowCreateBiz(true);
-                  } else {
-                      setShowRegister(true);
-                  }
-              }}
-           />
-           <Grid 
-              businesses={activeBusinesses} 
-              onSelect={(b) => { setSelectedBusiness(b); setView('profile'); }}
-           />
-           <Footer 
-              onNav={setView} 
-              onLogin={() => setShowLogin(true)} 
-              onRegister={() => setShowRegister(true)} 
-              onSupport={() => setShowSupport(true)}
-           />
-        </>
+        <div className="animate-fade-in">
+           <Hero featured={featured} onSelect={handleBusinessClick} onRegister={() => user ? setView('owner') : setShowRegister(true)} />
+           <CategoryFilter active={category} onSelect={setCategory} />
+           <Grid businesses={businesses.filter(b => b.status === 'approved' && (category === 'All' || b.category === category))} onSelect={handleBusinessClick} />
+           <Footer onNav={setView} onLogin={() => setShowLogin(true)} onRegister={() => setShowRegister(true)} onSupport={() => setShowSupport(true)} onPolicy={setPolicyType} />
+        </div>
       )}
 
       {view === 'profile' && selectedBusiness && (
-        <BusinessProfile 
-           business={selectedBusiness} 
-           onBack={() => setView('home')} 
-           user={user} 
-           onLogin={() => setShowLogin(true)}
-           onRefresh={loadBusinesses}
-        />
+        <BusinessProfile business={selectedBusiness} onBack={handleBack} user={user} onLogin={() => setShowLogin(true)} onRefresh={loadBusinesses} />
       )}
 
       {view === 'admin' && user?.role === 'admin' && (
-        <AdminDashboard 
-           onExit={() => setView('home')} 
-           businesses={businesses} 
-           onRefresh={loadBusinesses}
-        />
+        <AdminDashboard user={user} onLogout={() => { setUser(null); setView('home'); }} />
       )}
 
       {view === 'owner' && user && (
-          <div className="pt-32 pb-20 px-6 max-w-4xl mx-auto min-h-screen">
-              <div className="flex justify-between items-center mb-8">
+          <div className="pt-32 pb-20 px-6 max-w-6xl mx-auto min-h-screen animate-fade-in">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-16 gap-8">
                 <div>
-                   <h1 className="font-display text-4xl text-white uppercase">Owner Dashboard</h1>
-                   <p className="text-zinc-500">Welcome, {user.username}</p>
+                   <h1 className="font-display text-6xl text-white uppercase leading-none">Account <br/><span className="text-gold">Command</span></h1>
+                   <p className="text-zinc-500 text-[10px] font-black uppercase tracking-[0.3em] mt-4">Unified Identity v2.0</p>
                 </div>
-                <button onClick={() => setView('home')} className="text-zinc-500 hover:text-white transition">Back Home</button>
+                <div className="flex gap-4 w-full md:w-auto">
+                    <button onClick={() => setShowCreateBiz(true)} className="flex-1 md:flex-none px-8 py-3.5 bg-white text-black rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-gold transition flex items-center justify-center gap-2 shadow-xl shadow-white/5">
+                        <Plus size={16}/> New Venture
+                    </button>
+                    <button onClick={() => handleBack()} className="flex-1 md:flex-none px-8 py-3.5 glass rounded-2xl text-[10px] font-black uppercase tracking-widest hover:text-white transition">Back Home</button>
+                </div>
               </div>
 
-              {myBusiness ? (
-                  <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-8">
-                      <div className="flex flex-col md:flex-row gap-8 items-start">
-                          <div className="w-full md:w-1/3 aspect-square bg-black rounded-lg overflow-hidden border border-zinc-700">
-                             <img src={myBusiness.images[0] || myBusiness.imageURL || 'mascot.png'} className="w-full h-full object-cover"/>
-                          </div>
-                          <div className="flex-1">
-                             <div className="flex justify-between items-start">
-                                <div>
-                                   <h2 className="text-3xl font-display text-white mb-2">{myBusiness.business}</h2>
-                                   <div className="inline-block px-3 py-1 rounded bg-zinc-800 text-xs font-bold uppercase text-zinc-400 border border-zinc-700 mb-4">
-                                      {myBusiness.category}
-                                   </div>
-                                </div>
-                                <div className={`px-3 py-1 rounded text-xs font-bold uppercase border ${myBusiness.status === 'approved' ? 'bg-green-900/20 text-green-500 border-green-900' : 'bg-yellow-900/20 text-yellow-500 border-yellow-900'}`}>
-                                   {myBusiness.status}
-                                </div>
-                             </div>
-                             
-                             <p className="text-zinc-400 mb-6">{myBusiness.description}</p>
-                             
-                             <div className="flex flex-wrap gap-4">
-                                <button onClick={() => setEditingBusiness(myBusiness)} className="bg-gold-400 text-black px-6 py-2 rounded-lg font-bold uppercase text-sm hover:bg-white transition flex items-center gap-2">
-                                   <Settings size={16}/> Edit Business
-                                </button>
-                                <button onClick={() => { setSelectedBusiness(myBusiness); setView('profile'); }} className="bg-zinc-800 text-white px-6 py-2 rounded-lg font-bold uppercase text-sm hover:bg-zinc-700 transition flex items-center gap-2">
-                                   <Eye size={16}/> View Public Page
-                                </button>
-                             </div>
-                          </div>
-                      </div>
-                      
-                      <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-4">
-                          <div className="bg-zinc-950 p-4 rounded border border-zinc-800 text-center">
-                              <div className="text-2xl font-bold text-white">{myBusiness.views || 0}</div>
-                              <div className="text-xs text-zinc-500 uppercase">Total Views</div>
-                          </div>
-                          <div className="bg-zinc-950 p-4 rounded border border-zinc-800 text-center">
-                              <div className="text-2xl font-bold text-white">{myBusiness.reviews?.length || 0}</div>
-                              <div className="text-xs text-zinc-500 uppercase">Reviews</div>
-                          </div>
-                          <div className="bg-zinc-950 p-4 rounded border border-zinc-800 text-center">
-                              {myBusiness.subscriptionEnd && Number(myBusiness.subscriptionEnd) > Date.now() ? (
-                                  <div className="text-2xl font-bold text-green-500">Active</div>
-                              ) : (
-                                  <div className="text-2xl font-bold text-red-500">Expired</div>
-                              )}
-                              <div className="text-xs text-zinc-500 uppercase">Subscription</div>
-                          </div>
-                      </div>
+              <GlobalProfileEditor user={user} onUpdate={(updated: any) => setUser({...user, ...updated})} />
+
+              <h2 className="font-display text-4xl text-white uppercase mb-10">Your Portfolio</h2>
+              {myBusinesses.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                      {myBusinesses.map(biz => (
+                        <div key={biz.id} className="glass-card rounded-[2.5rem] p-6 flex flex-col group h-full">
+                            <div className="relative aspect-video rounded-3xl overflow-hidden mb-6 bg-black">
+                                <img src={biz.images[0] || biz.imageURL || 'mascot.png'} className="w-full h-full object-cover group-hover:scale-110 transition duration-700" />
+                                <div className="absolute top-4 left-4 bg-black/60 px-3 py-1 rounded-full text-[10px] font-black text-gold border border-gold/20 uppercase tracking-widest">{biz.category}</div>
+                            </div>
+                            <h3 className="text-3xl font-display text-white mb-2 leading-none">{biz.business}</h3>
+                            <p className="text-zinc-500 text-xs line-clamp-2 mb-8 flex-1 leading-relaxed">{biz.description}</p>
+                            <div className="flex gap-3 pt-6 border-t border-white/5">
+                                <button onClick={() => handleManageClick(biz)} className="flex-1 py-3.5 bg-zinc-800 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-gold hover:text-black transition">Manage</button>
+                                <button onClick={() => handleBusinessClick(biz)} className="p-3.5 glass text-white rounded-2xl hover:bg-zinc-800 transition"><Eye size={18}/></button>
+                            </div>
+                        </div>
+                      ))}
                   </div>
               ) : (
-                  <div className="text-center py-24 bg-zinc-900/50 border border-dashed border-zinc-800 rounded-xl">
-                      <div className="w-16 h-16 bg-zinc-800 rounded-full flex items-center justify-center mx-auto mb-6 text-zinc-600">
-                         <Store size={32}/>
-                      </div>
-                      <h2 className="text-2xl font-bold text-white mb-2">No Business Listed</h2>
-                      <p className="text-zinc-400 mb-8 max-w-md mx-auto">You haven't registered a business yet.</p>
-                      <button onClick={() => setShowCreateBiz(true)} className="bg-gold-400 text-black px-8 py-3 rounded-full font-bold uppercase tracking-widest hover:bg-white transition">
-                         Register New Business
-                      </button>
+                  <div className="text-center py-24 glass-card rounded-[3rem]">
+                      <Store size={48} className="text-zinc-900 mx-auto mb-6"/>
+                      <p className="text-zinc-500 font-display uppercase">No Active Listings</p>
                   </div>
               )}
           </div>
       )}
 
-      {/* Modals */}
       {showLogin && <LoginModal onClose={() => setShowLogin(false)} onLogin={handleLogin} />}
       {showRegister && <LoginModal onClose={() => setShowRegister(false)} onLogin={handleLogin} initialView="signup"/>}
       {showCreateBiz && user && <CreateBusinessModal user={user} onClose={() => setShowCreateBiz(false)} onRefresh={loadBusinesses}/>}
       {showSupport && <SupportModal onClose={() => setShowSupport(false)} />}
-      
-      {editingBusiness && (
-          <EditBusinessModal 
-              business={editingBusiness} 
-              onClose={() => setEditingBusiness(null)}
-              onRefresh={loadBusinesses}
-              isAdmin={false}
-          />
+      {policyType && <PolicyModal type={policyType} onClose={() => setPolicyType(null)} />}
+      {editingBusiness && <EditBusinessModal business={editingBusiness} onClose={() => setEditingBusiness(null)} onRefresh={loadBusinesses} isAdmin={user?.role === 'admin'} />}
+
+      {/* Global Processing Overlay */}
+      {(processing.active) && (
+        <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-zinc-950/90 backdrop-blur-sm animate-fade-in">
+             <Sparkles size={48} className="text-gold animate-pulse mb-4"/>
+             <div className="text-xs font-black uppercase tracking-[0.3em] text-zinc-500">{processing.text}</div>
+        </div>
       )}
     </div>
   );
