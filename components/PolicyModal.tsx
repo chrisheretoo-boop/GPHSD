@@ -41,7 +41,7 @@ export const PolicyModal: React.FC<Props> = ({ type, onClose }) => {
                      <p>By using the GPHS Directory, you agree to these Terms of Service. Please read them carefully.</p>
 
                      <h3 className="text-white font-bold text-lg mt-4">1. Acceptable Use</h3>
-                     <p>All listings must adhere to Grand Prairie High School guidelines. We strictly prohibit the sale of illegal items, weapons, drugs, or inappropriate content. Admins reserve the right to remove any listing without notice.</p>
+                     <p>All listings must adhere to Gwynn Park High School guidelines. We strictly prohibit the sale of illegal items, weapons, drugs, or inappropriate content. Admins reserve the right to remove any listing without notice.</p>
 
                      <h3 className="text-white font-bold text-lg mt-4">2. Subscriptions & Payments</h3>
                      <p>Business listings require a weekly subscription fee of $1.00. Failure to renew will result in the temporary removal of your listing from the public directory. All payments are non-refundable.</p>

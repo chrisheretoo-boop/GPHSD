@@ -11,7 +11,7 @@ import { SupportModal } from './components/SupportModal';
 import { ReplyModal } from './components/ReplyModal';
 import { PolicyModal } from './components/PolicyModal';
 import { AdminDashboard } from './components/AdminDashboard';
-import { Search, ShieldCheck, LogOut, LayoutDashboard, User, X, Star, ArrowRight, Instagram, Twitter, Facebook, LifeBuoy, Store, CheckCircle, Clock, Users, Trash2, Reply, Settings, Key, Eye, UserPlus, MapPin, Mail, Phone, Linkedin, Send, Music2, Loader2, ChevronRight, Sparkles, EyeOff, AlertTriangle, ExternalLink, Plus, Camera, Upload, Rocket, BadgeCheck } from 'lucide-react';
+import { Search, ShieldCheck, LogOut, LayoutDashboard, User, X, Star, ArrowRight, Instagram, Twitter, Facebook, LifeBuoy, Store, CheckCircle, Clock, Users, Trash2, Reply, Settings, Key, Eye, UserPlus, MapPin, Mail, Phone, Linkedin, Send, Music2, Loader2, ChevronRight, Sparkles, EyeOff, AlertTriangle, ExternalLink, Plus, Camera, Upload, Rocket, BadgeCheck, RefreshCw } from 'lucide-react';
 
 // --- SHARED ADMIN COMPONENTS ---
 
@@ -402,17 +402,25 @@ const App = () => {
   const [policyType, setPolicyType] = useState<'privacy' | 'terms' | null>(null);
 
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [processing, setProcessing] = useState<{ active: boolean; text: string }>({ active: false, text: 'Processing...' });
 
   useEffect(() => { loadBusinesses(); }, []);
 
   const loadBusinesses = async () => {
-    const data = await getBusinesses();
-    // Sort by order so that items with lower order index appear first.
-    // If order is undefined, it defaults to a large number to appear at the end.
-    data.sort((a, b) => (a.order ?? 10000) - (b.order ?? 10000));
-    setBusinesses(data);
-    setLoading(false);
+    setLoading(true);
+    setError('');
+    try {
+        const data = await getBusinesses();
+        // Sort by order so that items with lower order index appear first.
+        data.sort((a, b) => (a.order ?? 10000) - (b.order ?? 10000));
+        setBusinesses(data);
+    } catch (e: any) {
+        console.error("Initialization Failed:", e);
+        setError("Failed to connect to the directory database. " + (e.message || ""));
+    } finally {
+        setLoading(false);
+    }
   };
 
   const handleLogin = (u: any) => {
@@ -459,6 +467,24 @@ const App = () => {
              <div className="text-xs font-black uppercase tracking-[0.3em] text-zinc-500">Initializing Directory...</div>
         </div>
      );
+  }
+
+  if (error) {
+      return (
+          <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-zinc-950 text-white animate-fade-in p-6 text-center">
+             <AlertTriangle size={48} className="text-red-500 mb-6"/>
+             <h2 className="text-2xl font-display uppercase text-red-500 mb-2">Connection Failed</h2>
+             <p className="text-zinc-500 text-sm max-w-md mb-8 leading-relaxed">
+                 We couldn't reach the GPHS database. This typically happens if the site URL hasn't been whitelisted in the cloud console.
+             </p>
+             <button onClick={loadBusinesses} className="flex items-center gap-2 px-6 py-3 bg-white text-black rounded-xl font-bold uppercase text-xs tracking-widest hover:bg-gold transition">
+                 <RefreshCw size={16}/> Retry Connection
+             </button>
+             <div className="mt-8 p-4 bg-zinc-900 rounded-lg text-[10px] text-zinc-600 font-mono text-left max-w-sm overflow-auto">
+                 Error Log: {error}
+             </div>
+          </div>
+      );
   }
 
   return (
