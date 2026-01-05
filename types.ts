@@ -1,3 +1,4 @@
+
 export interface Business {
   id: string;
   business: string;
@@ -62,4 +63,22 @@ export interface User {
   source?: 'users' | 'applications';
 }
 
-export type ViewState = 'home' | 'admin' | 'profile' | 'owner';
+export interface ChatMessage {
+  id: string;
+  senderId: string;
+  senderName: string;
+  senderImg: string;
+  text: string;
+  timestamp: number;
+}
+
+export interface ChatRoom {
+  id: string;
+  participants: string[];
+  lastMessage?: string;
+  lastTimestamp?: number;
+  type: 'global' | 'direct';
+  name?: string;
+}
+
+export type ViewState = 'home' | 'admin' | 'profile' | 'owner' | 'chat';

@@ -10,23 +10,25 @@ import { SupportModal } from './components/SupportModal';
 import { ReplyModal } from './components/ReplyModal';
 import { PolicyModal } from './components/PolicyModal';
 import { AdminDashboard } from './components/AdminDashboard';
-import { Search, ShieldCheck, LogOut, LayoutDashboard, User, X, Star, ArrowRight, Instagram, Twitter, Facebook, LifeBuoy, Store, CheckCircle, Clock, Users, Trash2, Reply, Settings, Key, Eye, UserPlus, MapPin, Mail, Phone, Linkedin, Send, Music2, Loader2, ChevronRight, Sparkles, EyeOff, AlertTriangle, ExternalLink, Plus, Camera, Upload, Rocket, BadgeCheck, RefreshCw } from 'lucide-react';
+import { ChatInterface } from './components/ChatInterface';
+import { Search, ShieldCheck, LogOut, LayoutDashboard, User, X, Star, ArrowRight, ArrowLeft, Instagram, Twitter, Facebook, LifeBuoy, Store, CheckCircle, Clock, Users, Trash2, Reply, Settings, Key, Eye, UserPlus, MapPin, Mail, Phone, Linkedin, Send, Music2, Loader2, ChevronRight, Sparkles, EyeOff, AlertTriangle, ExternalLink, Plus, Camera, Upload, Rocket, BadgeCheck, RefreshCw, BarChart3, Fingerprint, History, MessageSquare } from 'lucide-react';
 
-// --- SHARED ADMIN COMPONENTS ---
+// --- SHARED COMPONENTS ---
 
 const DeleteConfirmationModal = ({ title, message, onConfirm, onCancel, loading }: { title: string, message: string, onConfirm: () => void, onCancel: () => void, loading: boolean }) => (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-fade-in">
-        <div className="bg-zinc-900 w-full max-w-md rounded-2xl border border-red-500/30 shadow-2xl p-8">
-            <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6 text-red-500">
-                <Trash2 size={32} />
+    <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/95 backdrop-blur-xl p-4 animate-fade-in">
+        <div className="bg-zinc-900 w-full max-w-md rounded-[3rem] border border-red-500/20 shadow-2xl p-12 text-center relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-1 bg-red-500 opacity-20"></div>
+            <div className="w-24 h-24 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-8 text-red-500 ring-8 ring-red-500/5">
+                <Trash2 size={44} />
             </div>
-            <h3 className="text-2xl font-display text-white text-center mb-2 uppercase tracking-wide">{title}</h3>
-            <p className="text-zinc-500 text-center mb-10 text-sm leading-relaxed">{message}</p>
-            <div className="flex gap-4">
-                <button onClick={onCancel} disabled={loading} className="flex-1 py-4 rounded-xl bg-zinc-800 text-zinc-400 font-black uppercase text-[10px] tracking-widest hover:bg-zinc-700 transition">Cancel</button>
-                <button onClick={onConfirm} disabled={loading} className="flex-1 py-4 rounded-xl bg-red-600 text-white font-black uppercase text-[10px] tracking-widest hover:bg-red-500 transition flex items-center justify-center gap-2 shadow-xl shadow-red-600/20">
-                    {loading ? <Loader2 size={16} className="animate-spin"/> : 'Confirm Delete'}
+            <h3 className="text-3xl font-display text-white mb-3 uppercase tracking-tighter">{title}</h3>
+            <p className="text-zinc-500 mb-12 text-sm leading-relaxed px-4 font-medium">{message}</p>
+            <div className="flex flex-col gap-3">
+                <button onClick={onConfirm} disabled={loading} className="w-full py-5 rounded-2xl bg-red-600 text-white font-black uppercase text-[10px] tracking-widest hover:bg-red-500 transition-all flex items-center justify-center gap-3 shadow-xl shadow-red-600/20 active:scale-95">
+                    {loading ? <Loader2 size={16} className="animate-spin"/> : 'Decommission Venture'}
                 </button>
+                <button onClick={onCancel} disabled={loading} className="w-full py-4 rounded-2xl bg-zinc-800 text-zinc-500 font-black uppercase text-[10px] tracking-widest hover:bg-zinc-700 hover:text-white transition duration-300">Abort Deletion</button>
             </div>
         </div>
     </div>
@@ -53,6 +55,10 @@ const Navbar = ({ onNav, user, onLogout, onLoginClick, onRegisterClick }: any) =
               <LayoutDashboard size={20} />
             </button>
           )}
+          <button onClick={() => onNav('chat')} className="p-2 text-zinc-400 hover:text-gold transition relative group" title="Encrypted Chat">
+              <MessageSquare size={20} />
+              <span className="absolute top-1 right-1 w-2 h-2 bg-green-500 rounded-full border border-black animate-pulse"></span>
+          </button>
           <button onClick={() => onNav('owner')} className="flex items-center gap-2 px-4 py-2 rounded-full glass border-gold/20 text-gold text-[10px] font-bold uppercase tracking-widest hover:bg-gold hover:text-black transition">
              <User size={14} /> Account
           </button>
@@ -319,7 +325,7 @@ const GlobalProfileEditor = ({ user, onUpdate }: any) => {
         try {
             await updateUserProfile(user.id, formData);
             onUpdate(formData);
-            alert("Global Identity updated across all businesses and reviews!");
+            alert("Global Identity updated!");
         } catch (e) {
             alert("Failed to update profile.");
         } finally {
@@ -342,40 +348,46 @@ const GlobalProfileEditor = ({ user, onUpdate }: any) => {
     };
 
     return (
-        <div className="glass-card rounded-[2.5rem] p-10 mb-20 border border-gold/10 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-gold/5 blur-[80px] rounded-full -translate-y-1/2 translate-x-1/2"></div>
-            <div className="relative z-10 flex flex-col lg:flex-row gap-16">
+        <div className="glass-card rounded-[3rem] p-12 mb-20 border border-gold/10 relative overflow-hidden group/editor">
+            <div className="absolute top-0 right-0 w-96 h-96 bg-gold/5 blur-[120px] rounded-full -translate-y-1/2 translate-x-1/2 group-hover/editor:bg-gold/10 transition duration-1000"></div>
+            <div className="relative z-10 flex flex-col lg:flex-row gap-20">
                 <div className="flex flex-col items-center shrink-0">
-                    <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-                        <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-gold/20 bg-zinc-900 flex items-center justify-center">
-                            {formData.profileImg ? <img src={formData.profileImg} className="w-full h-full object-cover"/> : <User size={48} className="text-zinc-700"/>}
+                    <div className="relative group/avatar cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                        <div className="w-48 h-48 rounded-[3rem] overflow-hidden border-4 border-white/5 bg-zinc-900 flex items-center justify-center group-hover/avatar:border-gold/30 transition duration-500 shadow-2xl">
+                            {formData.profileImg ? <img src={formData.profileImg} className="w-full h-full object-cover"/> : <User size={80} className="text-zinc-800"/>}
                         </div>
-                        <div className="absolute inset-0 bg-black/60 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow-2xl">
-                             {uploading ? <Loader2 size={24} className="animate-spin text-gold"/> : <Camera size={24} className="text-white"/>}
+                        <div className="absolute inset-0 bg-black/60 rounded-[3rem] flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition shadow-2xl backdrop-blur-md">
+                             {uploading ? <Loader2 size={32} className="animate-spin text-gold"/> : <Camera size={32} className="text-white"/>}
                         </div>
                     </div>
                     <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handlePhotoUpload}/>
-                    <div className="mt-4 text-center">
-                        <div className="text-white font-black uppercase text-[10px] tracking-widest">{user.username}</div>
-                        <div className="text-gold text-[8px] font-black uppercase tracking-widest mt-1 opacity-60">Verified Owner</div>
+                    <div className="mt-8 text-center">
+                        <div className="text-white font-black uppercase text-sm tracking-widest flex items-center gap-2 justify-center">
+                            <Fingerprint size={16} className="text-gold opacity-60"/>
+                            {user.username}
+                        </div>
+                        <div className="inline-flex items-center gap-2 mt-2 px-4 py-1.5 rounded-full bg-gold/10 border border-gold/20 text-gold text-[10px] font-black uppercase tracking-widest opacity-80">
+                             Unified Portal ID
+                        </div>
                     </div>
                 </div>
-                <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div className="space-y-2">
-                        <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Public Display Name</label>
-                        <input value={formData.displayName || ''} onChange={e => setFormData({...formData, displayName: e.target.value})} className="w-full bg-black/40 border border-white/5 rounded-2xl p-4 text-white focus:border-gold/30 outline-none transition text-sm font-medium"/>
+                <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-10">
+                    <div className="space-y-3">
+                        <label className="text-[10px] font-black text-zinc-600 uppercase tracking-widest ml-1">Public Display Handle</label>
+                        <input value={formData.displayName || ''} onChange={e => setFormData({...formData, displayName: e.target.value})} className="w-full bg-black border border-white/10 rounded-2xl p-5 text-white focus:border-gold/30 outline-none transition text-sm font-medium"/>
                     </div>
-                    <div className="space-y-2">
-                        <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Contact Point (Email/Phone)</label>
-                        <input value={formData.contactInfo || ''} onChange={e => setFormData({...formData, contactInfo: e.target.value})} className="w-full bg-black/40 border border-white/5 rounded-2xl p-4 text-white focus:border-gold/30 outline-none transition text-sm font-medium"/>
+                    <div className="space-y-3">
+                        <label className="text-[10px] font-black text-zinc-600 uppercase tracking-widest ml-1">Contact Reference</label>
+                        <input value={formData.contactInfo || ''} onChange={e => setFormData({...formData, contactInfo: e.target.value})} className="w-full bg-black border border-white/10 rounded-2xl p-5 text-white focus:border-gold/30 outline-none transition text-sm font-medium"/>
                     </div>
-                    <div className="space-y-2 md:col-span-2">
-                        <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Owner Bio (Appears on all listings)</label>
-                        <textarea value={formData.bio || ''} onChange={e => setFormData({...formData, bio: e.target.value})} rows={3} className="w-full bg-black/40 border border-white/5 rounded-2xl p-4 text-white focus:border-gold/30 outline-none transition text-sm font-medium resize-none"/>
+                    <div className="space-y-3 md:col-span-2">
+                        <label className="text-[10px] font-black text-zinc-600 uppercase tracking-widest ml-1">Entrepreneurial Biography</label>
+                        <textarea value={formData.bio || ''} onChange={e => setFormData({...formData, bio: e.target.value})} rows={3} className="w-full bg-black border border-white/10 rounded-2xl p-5 text-white focus:border-gold/30 outline-none transition text-sm font-medium resize-none leading-relaxed"/>
                     </div>
-                    <div className="md:col-span-2 flex justify-end">
-                        <button onClick={handleSave} disabled={loading || uploading} className="bg-white text-black px-10 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-gold transition-all transform active:scale-95 shadow-xl">
-                            {loading ? 'Updating Identity...' : 'Sync Global Profile'}
+                    <div className="md:col-span-2 flex justify-end gap-4 pt-6">
+                        <button onClick={handleSave} disabled={loading || uploading} className="bg-white text-black px-12 py-5 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-gold transition-all transform active:scale-95 shadow-2xl flex items-center gap-4">
+                            {loading ? <Loader2 size={16} className="animate-spin"/> : <RefreshCw size={16}/>}
+                            Update Command Identity
                         </button>
                     </div>
                 </div>
@@ -401,6 +413,7 @@ const App = () => {
   const [policyType, setPolicyType] = useState<'privacy' | 'terms' | null>(null);
   
   const [settings, setSettings] = useState<any>({});
+  const [businessToDelete, setBusinessToDelete] = useState<Business | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -435,15 +448,29 @@ const App = () => {
     setError('');
     try {
         const data = await getBusinesses();
-        // Sort by order so that items with lower order index appear first.
         data.sort((a, b) => (a.order ?? 10000) - (b.order ?? 10000));
         setBusinesses(data);
     } catch (e: any) {
         console.error("Initialization Failed:", e);
-        setError("Failed to connect to the directory database. " + (e.message || ""));
+        setError("Database Connection Failure: " + (e.message || "Unknown error"));
     } finally {
         setLoading(false);
     }
+  };
+
+  const executeDeleteBusiness = async (biz: Business) => {
+      setProcessing({ active: true, text: 'Executing Decommission Protocol...' });
+      try {
+          if (!biz.id) throw new Error("Reference mismatch: Missing Business ID");
+          console.log(`Decommissioning Venture: ${biz.id}`);
+          await deleteUser(biz.id, 'applications');
+          setBusinessToDelete(null);
+          await loadBusinesses();
+      } catch (e: any) {
+          alert("Decommissioning failed: " + (e.message || "Unknown communication error"));
+      } finally {
+          setProcessing({ active: false, text: '' });
+      }
   };
 
   const handleLogin = (u: any, rememberMe: boolean) => {
@@ -467,7 +494,7 @@ const App = () => {
   };
 
   const handleBusinessClick = (b: Business) => {
-    setProcessing({ active: true, text: 'Accessing Portal...' });
+    setProcessing({ active: true, text: 'Accessing Terminal...' });
     setTimeout(() => {
         setSelectedBusiness(b);
         setView('profile');
@@ -477,7 +504,7 @@ const App = () => {
   };
 
   const handleManageClick = (b: Business) => {
-    setProcessing({ active: true, text: 'Securing Connection...' });
+    setProcessing({ active: true, text: 'Decrypting Interface...' });
     setTimeout(() => {
         setEditingBusiness(b);
         setProcessing({ active: false, text: '' });
@@ -485,7 +512,7 @@ const App = () => {
   };
 
   const handleBack = () => {
-      setProcessing({ active: true, text: 'Returning to Hub...' });
+      setProcessing({ active: true, text: 'Recalibrating Navigation...' });
       setTimeout(() => {
           setView('home');
           setProcessing({ active: false, text: '' });
@@ -499,8 +526,8 @@ const App = () => {
   if (loading) {
      return (
         <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-zinc-950 text-gold-400 animate-fade-in">
-             <Sparkles size={48} className="animate-pulse mb-4"/>
-             <div className="text-xs font-black uppercase tracking-[0.3em] text-zinc-500">Initializing Directory...</div>
+             <Sparkles size={64} className="animate-pulse mb-6"/>
+             <div className="text-[10px] font-black uppercase tracking-[0.5em] text-zinc-600">Initializing Terminal...</div>
         </div>
      );
   }
@@ -508,24 +535,21 @@ const App = () => {
   if (error) {
       return (
           <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-zinc-950 text-white animate-fade-in p-6 text-center">
-             <AlertTriangle size={48} className="text-red-500 mb-6"/>
-             <h2 className="text-2xl font-display uppercase text-red-500 mb-2">Connection Failed</h2>
-             <p className="text-zinc-500 text-sm max-w-md mb-8 leading-relaxed">
-                 We couldn't reach the GPHS database. This typically happens if the site URL hasn't been whitelisted in the cloud console.
+             <AlertTriangle size={64} className="text-red-500 mb-8"/>
+             <h2 className="text-3xl font-display uppercase text-red-500 mb-4 tracking-tighter">Connection Error</h2>
+             <p className="text-zinc-500 text-sm max-w-md mb-12 leading-relaxed">
+                 The encrypted database link is currently unstable. Please verify your network authentication.
              </p>
-             <button onClick={loadBusinesses} className="flex items-center gap-2 px-6 py-3 bg-white text-black rounded-xl font-bold uppercase text-xs tracking-widest hover:bg-gold transition">
-                 <RefreshCw size={16}/> Retry Connection
+             <button onClick={loadBusinesses} className="flex items-center gap-3 px-8 py-4 bg-white text-black rounded-2xl font-black uppercase text-xs tracking-[0.2em] hover:bg-gold transition-all active:scale-95 shadow-2xl">
+                 <RefreshCw size={18}/> Re-initialize Connection
              </button>
-             <div className="mt-8 p-4 bg-zinc-900 rounded-lg text-[10px] text-zinc-600 font-mono text-left max-w-sm overflow-auto">
-                 Error Log: {error}
-             </div>
           </div>
       );
   }
 
   return (
     <div className="bg-zinc-950 min-h-screen text-white font-sans selection:bg-gold selection:text-black scroll-smooth relative">
-      {view !== 'admin' && <Navbar onNav={setView} user={user} onLogout={handleLogout} onLoginClick={() => setShowLogin(true)} onRegisterClick={() => user ? setView('owner') : setShowRegister(true)}/>}
+      {view !== 'admin' && view !== 'chat' && <Navbar onNav={setView} user={user} onLogout={handleLogout} onLoginClick={() => setShowLogin(true)} onRegisterClick={() => user ? setView('owner') : setShowRegister(true)}/>}
 
       {view === 'home' && (
         <div className="animate-fade-in">
@@ -544,63 +568,124 @@ const App = () => {
         <AdminDashboard user={user} onLogout={handleLogout} />
       )}
 
+      {view === 'chat' && user && (
+          <ChatInterface user={user} onClose={() => setView('home')} />
+      )}
+
       {view === 'owner' && user && (
-          <div className="pt-32 pb-20 px-6 max-w-6xl mx-auto min-h-screen animate-fade-in">
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-16 gap-8">
-                <div>
-                   <h1 className="font-display text-6xl text-white uppercase leading-none">Account <br/><span className="text-gold">Command</span></h1>
-                   <p className="text-zinc-500 text-[10px] font-black uppercase tracking-[0.3em] mt-4">Unified Identity v2.0</p>
+          <div className="pt-40 pb-32 px-6 lg:px-16 max-w-7xl mx-auto min-h-screen animate-fade-in">
+              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end mb-24 gap-12">
+                <div className="space-y-6">
+                   <div className="flex items-center gap-4 text-gold text-[10px] font-black uppercase tracking-[0.5em]">
+                       <Fingerprint size={18}/> Admin Authorized
+                   </div>
+                   <h1 className="font-display text-7xl md:text-8xl text-white uppercase leading-[0.8] tracking-tighter">Command <br/><span className="text-gradient">Portfolio</span></h1>
                 </div>
-                <div className="flex gap-4 w-full md:w-auto">
-                    <button onClick={() => setShowCreateBiz(true)} className="flex-1 md:flex-none px-8 py-3.5 bg-white text-black rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-gold transition flex items-center justify-center gap-2 shadow-xl shadow-white/5">
-                        <Plus size={16}/> New Venture
+                <div className="flex flex-wrap gap-4 w-full lg:w-auto">
+                    <button onClick={() => setShowCreateBiz(true)} className="flex-1 lg:flex-none px-12 py-6 bg-white text-black rounded-3xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-gold transition-all transform active:scale-95 flex items-center justify-center gap-4 shadow-2xl shadow-white/5">
+                        <Plus size={20}/> New Holding
                     </button>
-                    <button onClick={() => handleBack()} className="flex-1 md:flex-none px-8 py-3.5 glass rounded-2xl text-[10px] font-black uppercase tracking-widest hover:text-white transition">Back Home</button>
+                    <button onClick={() => handleBack()} className="flex-1 lg:flex-none px-12 py-6 glass border-white/10 rounded-3xl text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 hover:text-white hover:bg-white/5 transition flex items-center justify-center gap-4">
+                        <ArrowLeft size={20}/> Exit Interface
+                    </button>
                 </div>
               </div>
 
-              <GlobalProfileEditor user={user} onUpdate={(updated: any) => setUser({...user, ...updated})} />
+              {/* Identity Block */}
+              <div className="mb-24">
+                  <div className="flex items-center gap-6 mb-12">
+                      <h2 className="font-display text-4xl text-white uppercase tracking-tighter">Unified Profile</h2>
+                      <div className="h-px bg-white/5 flex-1"></div>
+                  </div>
+                  <GlobalProfileEditor user={user} onUpdate={(updated: any) => setUser({...user, ...updated})} />
+              </div>
 
-              <h2 className="font-display text-4xl text-white uppercase mb-10">Your Portfolio</h2>
-              {myBusinesses.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                      {myBusinesses.map(biz => (
-                        <div key={biz.id} className="glass-card rounded-[2.5rem] p-6 flex flex-col group h-full">
-                            <div className="relative aspect-video rounded-3xl overflow-hidden mb-6 bg-black">
-                                <img src={biz.images[0] || biz.imageURL || 'mascot.png'} className="w-full h-full object-cover group-hover:scale-105 transition duration-700" />
-                                <div className="absolute top-4 left-4 bg-black/60 px-3 py-1 rounded-full text-[10px] font-black text-gold border border-gold/20 uppercase tracking-widest">{biz.category}</div>
-                            </div>
-                            <h3 className="text-3xl font-display text-white mb-2 leading-none">{biz.business}</h3>
-                            <p className="text-zinc-500 text-xs line-clamp-2 mb-8 flex-1 leading-relaxed">{biz.description}</p>
-                            <div className="flex gap-3 pt-6 border-t border-white/5">
-                                <button onClick={() => handleManageClick(biz)} className="flex-1 py-3.5 bg-zinc-800 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-gold hover:text-black transition">Manage</button>
-                                <button onClick={() => handleBusinessClick(biz)} className="p-3.5 glass text-white rounded-2xl hover:bg-zinc-800 transition"><Eye size={18}/></button>
-                            </div>
-                        </div>
-                      ))}
+              {/* Active Portfolio Grid */}
+              <div>
+                  <div className="flex items-center gap-6 mb-16">
+                      <h2 className="font-display text-4xl text-white uppercase tracking-tighter">Market Presence</h2>
+                      <div className="h-px bg-white/5 flex-1"></div>
                   </div>
-              ) : (
-                  <div className="text-center py-24 glass-card rounded-[3rem]">
-                      <Store size={48} className="text-zinc-900 mx-auto mb-6"/>
-                      <p className="text-zinc-500 font-display uppercase">No Active Listings</p>
-                  </div>
-              )}
+
+                  {myBusinesses.length > 0 ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
+                          {myBusinesses.map(biz => {
+                              const isPending = biz.status === 'pending';
+                              const isExpired = biz.subscriptionEnd && Number(biz.subscriptionEnd) < Date.now();
+                              return (
+                                <div key={biz.id} className="glass-card rounded-[3.5rem] p-10 flex flex-col group h-full relative overflow-hidden border border-white/5 hover:border-gold/20 transition-all duration-500">
+                                    <div className="relative aspect-[16/10] rounded-[2.5rem] overflow-hidden mb-10 bg-zinc-900 border border-white/5">
+                                        <img src={biz.images[0] || biz.imageURL || 'mascot.png'} className={`w-full h-full object-cover group-hover:scale-110 transition duration-1000 ${isExpired ? 'grayscale opacity-50' : ''}`} />
+                                        <div className="absolute top-6 left-6 flex flex-col gap-2">
+                                            {isPending && (
+                                                <div className="bg-amber-500/10 backdrop-blur-xl text-amber-500 border border-amber-500/30 px-5 py-2 rounded-full text-[8px] font-black uppercase tracking-widest flex items-center gap-2">
+                                                    <Clock size={12}/> Analysis Phase
+                                                </div>
+                                            )}
+                                            {isExpired && (
+                                                <div className="bg-red-500/10 backdrop-blur-xl text-red-500 border border-red-500/30 px-5 py-2 rounded-full text-[8px] font-black uppercase tracking-widest flex items-center gap-2">
+                                                    <AlertTriangle size={12}/> Expired Holding
+                                                </div>
+                                            )}
+                                            {!isPending && !isExpired && (
+                                                <div className="bg-green-500/10 backdrop-blur-xl text-green-500 border border-green-500/30 px-5 py-2 rounded-full text-[8px] font-black uppercase tracking-widest flex items-center gap-2">
+                                                    <CheckCircle size={12}/> Authenticated Live
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className="flex-1 space-y-6">
+                                        <h3 className="text-3xl font-display text-white group-hover:text-gold transition-colors tracking-tight uppercase leading-none">{biz.business}</h3>
+                                        <p className="text-zinc-600 text-sm line-clamp-2 leading-relaxed font-medium">"{biz.description}"</p>
+                                    </div>
+                                    <div className="mt-12 flex gap-4 pt-10 border-t border-white/5">
+                                        <button onClick={() => handleManageClick(biz)} className="flex-1 bg-white text-black py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-gold transition-all shadow-xl active:scale-95 flex items-center justify-center gap-2">
+                                            <Settings size={14}/> Adjust
+                                        </button>
+                                        <button onClick={() => setBusinessToDelete(biz)} className="p-5 bg-red-500/5 border border-red-500/10 text-red-500 rounded-2xl hover:bg-red-500 hover:text-white transition-all duration-300">
+                                            <Trash2 size={20}/>
+                                        </button>
+                                    </div>
+                                </div>
+                              );
+                          })}
+                      </div>
+                  ) : (
+                      <div className="text-center py-40 glass-card rounded-[4rem] border border-white/5 border-dashed">
+                          <Store size={64} className="text-zinc-900 mx-auto mb-10"/>
+                          <p className="text-3xl font-display text-zinc-800 uppercase tracking-[0.2em] font-black">No Active Portfolio</p>
+                      </div>
+                  )}
+              </div>
           </div>
       )}
 
       {showLogin && <LoginModal onClose={() => setShowLogin(false)} onLogin={handleLogin} />}
-      {showRegister && <LoginModal onClose={() => setShowRegister(false)} onLogin={handleLogin} initialView="signup"/>}
-      {showCreateBiz && user && <CreateBusinessModal user={user} onClose={() => setShowCreateBiz(false)} onRefresh={loadBusinesses}/>}
+      {showRegister && <LoginModal initialView="signup" onClose={() => setShowRegister(false)} onLogin={handleLogin} />}
+      {showCreateBiz && user && <CreateBusinessModal user={user} onClose={() => setShowCreateBiz(false)} onRefresh={loadBusinesses} />}
+      {editingBusiness && <EditBusinessModal business={editingBusiness} onClose={() => setEditingBusiness(null)} onRefresh={loadBusinesses} isAdmin={user?.role === 'admin'} />}
       {showSupport && <SupportModal onClose={() => setShowSupport(false)} />}
       {policyType && <PolicyModal type={policyType} onClose={() => setPolicyType(null)} />}
-      {editingBusiness && <EditBusinessModal business={editingBusiness} onClose={() => setEditingBusiness(null)} onRefresh={loadBusinesses} isAdmin={user?.role === 'admin'} />}
+      
+      {/* Dynamic Overlays */}
+      {businessToDelete && (
+          <DeleteConfirmationModal 
+            title="Decommission Venture" 
+            message={`Are you absolutely sure you want to permanently erase "${businessToDelete.business}"? This operation cannot be reversed.`}
+            onCancel={() => setBusinessToDelete(null)}
+            onConfirm={() => executeDeleteBusiness(businessToDelete)}
+            loading={processing.active}
+          />
+      )}
 
-      {/* Global Processing Overlay */}
-      {(processing.active) && (
-        <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-zinc-950/90 backdrop-blur-sm animate-fade-in">
-             <Sparkles size={48} className="text-gold animate-pulse mb-4"/>
-             <div className="text-xs font-black uppercase tracking-[0.3em] text-zinc-500">{processing.text}</div>
-        </div>
+      {processing.active && (
+          <div className="fixed inset-0 z-[600] flex flex-col items-center justify-center bg-zinc-950/95 backdrop-blur-xl animate-fade-in">
+              <div className="relative">
+                  <div className="w-32 h-32 border-4 border-gold/10 rounded-full animate-ping absolute -top-4 -left-4"></div>
+                  <Sparkles size={64} className="text-gold animate-pulse relative z-10" />
+              </div>
+              <p className="mt-12 text-zinc-500 text-[10px] font-black uppercase tracking-[0.5em] animate-pulse">{processing.text}</p>
+          </div>
       )}
     </div>
   );

@@ -1,7 +1,7 @@
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, getDocs, query, where, updateDoc, doc, deleteDoc, addDoc, orderBy, limit, writeBatch, getDoc, setDoc } from "firebase/firestore";
+import { getFirestore, collection, getDocs, query, where, updateDoc, doc, deleteDoc, addDoc, orderBy, limit, writeBatch, getDoc, setDoc, onSnapshot } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { User as UserType } from "./types";
+import { User as UserType, ChatMessage, ChatRoom } from "./types";
 
 const firebaseConfig = {
     apiKey: "AIzaSyCH5pOZcM3XAP-1QpzPNHod6esnH8-1eyw",
@@ -107,7 +107,7 @@ export const registerUser = async (username: string, password: string, email: st
 
 export const loginUser = async (username: string, password: string) => {
     if (username === 'admin' && password === 'admin') {
-        return { username: 'Admin', role: 'admin', displayName: 'System Administrator' };
+        return { username: 'Admin', role: 'admin', displayName: 'System Administrator', id: 'admin' };
     }
 
     const q = query(collection(db, "users"), where("username", "==", username));
@@ -210,28 +210,24 @@ export const getUsers = async () => {
         snapUsers.forEach(doc => {
             const data = doc.data();
             const username = data.username || doc.id;
-            // Only add if username exists
             if (username) {
                 usersMap.set(username, { ...data, id: doc.id, username, source: 'users' } as UserType);
             }
         });
     } catch (e) {
-        console.warn("Failed to fetch registered users (collection might be empty or restricted):", e);
+        console.warn("Failed to fetch registered users:", e);
     }
 
     // 2. Fetch implicit users from 'applications' collection
-    // These are business owners who might not have a dedicated user account
     try {
         const qApps = query(collection(db, "applications"));
         const snapApps = await getDocs(qApps);
         snapApps.forEach(doc => {
             const data = doc.data();
             const owner = data.owner;
-            
-            // If owner is not in the map yet, add them as an implicit user
             if (owner && !usersMap.has(owner)) {
                 usersMap.set(owner, {
-                    id: doc.id, // Using application ID as their ID
+                    id: doc.id,
                     username: owner,
                     role: 'business',
                     email: data.ownerContact || '',
@@ -252,10 +248,14 @@ export const getUsers = async () => {
 };
 
 export const deleteUser = async (id: string, source: 'users' | 'applications') => {
-    if (source === 'applications') {
-        await deleteDoc(doc(db, "applications", id));
-    } else {
-        await deleteDoc(doc(db, "users", id));
+    if (!id) throw new Error("Delete failed: Missing document ID");
+    try {
+        const collectionName = source === 'applications' ? 'applications' : 'users';
+        console.log(`Executing delete on ${collectionName}/${id}`);
+        await deleteDoc(doc(db, collectionName, id));
+    } catch (e) {
+        console.error("Delete operation failed in Firebase utility:", e);
+        throw e;
     }
 };
 
@@ -287,4 +287,105 @@ export const getGlobalSettings = async () => {
 export const updateGlobalSettings = async (settings: any) => {
     const docRef = doc(db, "settings", "global");
     await setDoc(docRef, settings, { merge: true });
+};
+
+// --- CHAT FUNCTIONS ---
+
+export const subscribeToMessages = (roomId: string, callback: (messages: ChatMessage[]) => void) => {
+    const q = query(
+        collection(db, "chats", roomId, "messages"),
+        orderBy("timestamp", "asc"),
+        limit(100)
+    );
+    return onSnapshot(q, (snapshot) => {
+        const messages = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        } as ChatMessage));
+        callback(messages);
+    });
+};
+
+export const sendMessage = async (roomId: string, user: UserType, text: string) => {
+    if (!text.trim()) return;
+    const messageData = {
+        senderId: user.username,
+        senderName: user.displayName || user.username,
+        senderImg: user.profileImg || '',
+        text: text.trim(),
+        timestamp: Date.now()
+    };
+    
+    // Add message
+    await addDoc(collection(db, "chats", roomId, "messages"), messageData);
+    
+    // Update room meta
+    await setDoc(doc(db, "chats", roomId), {
+        lastMessage: text.trim(),
+        lastTimestamp: Date.now()
+    }, { merge: true });
+};
+
+export const subscribeToUserChats = (userId: string, callback: (rooms: ChatRoom[]) => void) => {
+    const q = query(
+        collection(db, "chats"), 
+        where("participants", "array-contains", userId)
+    );
+    return onSnapshot(q, (snapshot) => {
+        let rooms = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        } as ChatRoom));
+        
+        // Client-side sort to avoid composite index requirement
+        rooms.sort((a, b) => (b.lastTimestamp || 0) - (a.lastTimestamp || 0));
+        
+        callback(rooms);
+    });
+};
+
+// New function for Spy Mode
+export const subscribeToAllChats = (callback: (rooms: ChatRoom[]) => void) => {
+    const q = query(collection(db, "chats"));
+    return onSnapshot(q, (snapshot) => {
+        let rooms = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        } as ChatRoom));
+        
+        // Client-side sort
+        rooms.sort((a, b) => (b.lastTimestamp || 0) - (a.lastTimestamp || 0));
+        
+        callback(rooms);
+    });
+};
+
+export const createOrGetDirectChat = async (currentUser: UserType, otherUser: UserType) => {
+    // Create consistent ID
+    const participants = [currentUser.username, otherUser.username].sort();
+    const roomId = `dm_${participants.join('_')}`;
+    
+    const roomRef = doc(db, "chats", roomId);
+    const roomSnap = await getDoc(roomRef);
+
+    if (!roomSnap.exists()) {
+        await setDoc(roomRef, {
+            type: 'direct',
+            participants: participants,
+            created: Date.now(),
+            lastTimestamp: Date.now(),
+            participantData: {
+                [currentUser.username]: { 
+                    name: currentUser.displayName || currentUser.username, 
+                    img: currentUser.profileImg || '' 
+                },
+                [otherUser.username]: { 
+                    name: otherUser.displayName || otherUser.username, 
+                    img: otherUser.profileImg || '' 
+                }
+            }
+        });
+    }
+    
+    return roomId;
 };
