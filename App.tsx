@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ViewState, Business, SupportTicket, User as UserType } from './types';
-// Fixed: Removed 'seedDatabase' from imports as it is not exported from firebase.ts
-import { db, getBusinesses, getFeaturedBusiness, getSupportTickets, updateTicketStatus, getUsers, deleteUser, updateUserPassword, updateUserProfile, uploadImage } from './firebase';
+import { db, getBusinesses, getFeaturedBusiness, getSupportTickets, updateTicketStatus, getUsers, deleteUser, updateUserPassword, updateUserProfile, uploadImage, getGlobalSettings } from './firebase';
 import { collection, query, where, getDocs, deleteDoc, doc } from 'firebase/firestore';
 import { EditBusinessModal } from './components/EditBusinessModal';
 import { CreateBusinessModal } from './components/CreateBusinessModal';
@@ -256,7 +255,7 @@ const Grid = ({ businesses, onSelect }: any) => (
   </div>
 );
 
-const Footer = ({ onNav, onLogin, onRegister, onSupport, onPolicy }: any) => (
+const Footer = ({ onNav, onLogin, onRegister, onSupport, onPolicy, settings }: any) => (
   <footer className="bg-zinc-950 pt-32 pb-16 px-6 border-t border-white/5">
     <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-16 mb-24">
       <div className="col-span-1 md:col-span-1">
@@ -281,9 +280,9 @@ const Footer = ({ onNav, onLogin, onRegister, onSupport, onPolicy }: any) => (
       <div>
         <h4 className="text-white text-[10px] font-black uppercase tracking-[0.3em] mb-8">Connect</h4>
         <ul className="space-y-4 text-sm font-bold text-zinc-500">
-          <li className="flex items-center gap-3 text-left"><MapPin size={16} className="text-gold opacity-50 shrink-0"/> Gwynn Park High</li>
-          <li className="flex items-center gap-3 text-left"><Mail size={16} className="text-gold opacity-50 shrink-0"/> support@gphs.edu</li>
-          <li className="flex items-center gap-3 text-left"><Phone size={16} className="text-gold opacity-50 shrink-0"/> (240) 623-8773</li>
+          <li className="flex items-center gap-3 text-left"><MapPin size={16} className="text-gold opacity-50 shrink-0"/> {settings?.contactName || "Gwynn Park High"}</li>
+          <li className="flex items-center gap-3 text-left"><Mail size={16} className="text-gold opacity-50 shrink-0"/> {settings?.contactEmail || "support@gphs.edu"}</li>
+          <li className="flex items-center gap-3 text-left"><Phone size={16} className="text-gold opacity-50 shrink-0"/> {settings?.contactPhone || "(240) 623-8773"}</li>
         </ul>
       </div>
       <div>
@@ -400,12 +399,36 @@ const App = () => {
   const [showCreateBiz, setShowCreateBiz] = useState(false);
   const [showSupport, setShowSupport] = useState(false);
   const [policyType, setPolicyType] = useState<'privacy' | 'terms' | null>(null);
+  
+  const [settings, setSettings] = useState<any>({});
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [processing, setProcessing] = useState<{ active: boolean; text: string }>({ active: false, text: 'Processing...' });
 
-  useEffect(() => { loadBusinesses(); }, []);
+  useEffect(() => { 
+      loadBusinesses(); 
+      loadSettings();
+      // Check for remembered user
+      const storedUser = localStorage.getItem('gphs_user');
+      if (storedUser) {
+          try {
+              const u = JSON.parse(storedUser);
+              if (u && u.username) {
+                  setUser(u);
+                  if (u.role === 'admin') setView('admin');
+              }
+          } catch (e) {
+              console.error("Failed to parse stored user", e);
+              localStorage.removeItem('gphs_user');
+          }
+      }
+  }, []);
+
+  const loadSettings = async () => {
+      const s = await getGlobalSettings();
+      setSettings(s);
+  };
 
   const loadBusinesses = async () => {
     setLoading(true);
@@ -423,11 +446,24 @@ const App = () => {
     }
   };
 
-  const handleLogin = (u: any) => {
+  const handleLogin = (u: any, rememberMe: boolean) => {
     setUser(u);
     setShowLogin(false);
     setShowRegister(false);
+    
+    if (rememberMe) {
+        localStorage.setItem('gphs_user', JSON.stringify(u));
+    } else {
+        localStorage.removeItem('gphs_user');
+    }
+
     if (u.role === 'admin') setView('admin');
+  };
+
+  const handleLogout = () => {
+      setUser(null);
+      localStorage.removeItem('gphs_user');
+      setView('home');
   };
 
   const handleBusinessClick = (b: Business) => {
@@ -489,14 +525,14 @@ const App = () => {
 
   return (
     <div className="bg-zinc-950 min-h-screen text-white font-sans selection:bg-gold selection:text-black scroll-smooth relative">
-      {view !== 'admin' && <Navbar onNav={setView} user={user} onLogout={() => { setUser(null); setView('home'); }} onLoginClick={() => setShowLogin(true)} onRegisterClick={() => user ? setView('owner') : setShowRegister(true)}/>}
+      {view !== 'admin' && <Navbar onNav={setView} user={user} onLogout={handleLogout} onLoginClick={() => setShowLogin(true)} onRegisterClick={() => user ? setView('owner') : setShowRegister(true)}/>}
 
       {view === 'home' && (
         <div className="animate-fade-in">
            <Hero featured={featured} onSelect={handleBusinessClick} onRegister={() => user ? setView('owner') : setShowRegister(true)} />
            <CategoryFilter active={category} onSelect={setCategory} />
            <Grid businesses={businesses.filter(b => b.status === 'approved' && (category === 'All' || b.category === category))} onSelect={handleBusinessClick} />
-           <Footer onNav={setView} onLogin={() => setShowLogin(true)} onRegister={() => setShowRegister(true)} onSupport={() => setShowSupport(true)} onPolicy={setPolicyType} />
+           <Footer onNav={setView} onLogin={() => setShowLogin(true)} onRegister={() => setShowRegister(true)} onSupport={() => setShowSupport(true)} onPolicy={setPolicyType} settings={settings} />
         </div>
       )}
 
@@ -505,7 +541,7 @@ const App = () => {
       )}
 
       {view === 'admin' && user?.role === 'admin' && (
-        <AdminDashboard user={user} onLogout={() => { setUser(null); setView('home'); }} />
+        <AdminDashboard user={user} onLogout={handleLogout} />
       )}
 
       {view === 'owner' && user && (
@@ -531,7 +567,7 @@ const App = () => {
                       {myBusinesses.map(biz => (
                         <div key={biz.id} className="glass-card rounded-[2.5rem] p-6 flex flex-col group h-full">
                             <div className="relative aspect-video rounded-3xl overflow-hidden mb-6 bg-black">
-                                <img src={biz.images[0] || biz.imageURL || 'mascot.png'} className="w-full h-full object-cover group-hover:scale-110 transition duration-700" />
+                                <img src={biz.images[0] || biz.imageURL || 'mascot.png'} className="w-full h-full object-cover group-hover:scale-105 transition duration-700" />
                                 <div className="absolute top-4 left-4 bg-black/60 px-3 py-1 rounded-full text-[10px] font-black text-gold border border-gold/20 uppercase tracking-widest">{biz.category}</div>
                             </div>
                             <h3 className="text-3xl font-display text-white mb-2 leading-none">{biz.business}</h3>

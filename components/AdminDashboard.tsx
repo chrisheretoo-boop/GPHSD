@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Store, MessageSquare, TrendingUp, Search, Trash2, Edit, CheckCircle, XCircle, AlertCircle, Lock, LogOut, LayoutDashboard, ExternalLink, ShieldAlert, Sparkles, RefreshCw, ArrowUp, ArrowDown, Menu } from 'lucide-react';
-import { db, getBusinesses, getUsers, getSupportTickets, deleteUser, updateTicketStatus, updateUserPassword, saveBusinessOrder } from '../firebase';
+import { Users, Store, MessageSquare, TrendingUp, Search, Trash2, Edit, CheckCircle, XCircle, AlertCircle, Lock, LogOut, LayoutDashboard, ExternalLink, ShieldAlert, Sparkles, RefreshCw, ArrowUp, ArrowDown, Menu, Copy, UserCheck, UserCog, Ghost, Filter, Database, Settings, Save, Phone, Mail, MapPin } from 'lucide-react';
+import { db, getBusinesses, getUsers, getSupportTickets, deleteUser, updateTicketStatus, updateUserPassword, saveBusinessOrder, getGlobalSettings, updateGlobalSettings } from '../firebase';
 import { doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { Business, User, SupportTicket } from '../types';
 import { EditBusinessModal } from './EditBusinessModal';
@@ -12,7 +12,7 @@ interface Props {
 }
 
 export const AdminDashboard: React.FC<Props> = ({ user, onLogout }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'businesses' | 'users' | 'support'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'businesses' | 'users' | 'support' | 'settings'>('overview');
   const [stats, setStats] = useState({ revenue: 0, activeListings: 0, users: 0, openTickets: 0 });
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [users, setUsers] = useState<any[]>([]);
@@ -21,6 +21,12 @@ export const AdminDashboard: React.FC<Props> = ({ user, onLogout }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
+  // User Management Specific State
+  const [userFilter, setUserFilter] = useState<'all' | 'admin' | 'registered' | 'implicit'>('all');
+
+  // Global Settings State
+  const [globalSettings, setGlobalSettings] = useState({ contactName: '', contactEmail: '', contactPhone: '' });
+
   // Modal States
   const [editingBusiness, setEditingBusiness] = useState<Business | null>(null);
   const [replyTicket, setReplyTicket] = useState<SupportTicket | null>(null);
@@ -32,10 +38,11 @@ export const AdminDashboard: React.FC<Props> = ({ user, onLogout }) => {
   const loadData = async () => {
     setLoading(true);
     try {
-        const [bizData, userData, ticketData] = await Promise.all([
+        const [bizData, userData, ticketData, settingsData] = await Promise.all([
             getBusinesses(),
             getUsers(),
-            getSupportTickets()
+            getSupportTickets(),
+            getGlobalSettings()
         ]);
 
         // Sort by order
@@ -44,6 +51,7 @@ export const AdminDashboard: React.FC<Props> = ({ user, onLogout }) => {
         setBusinesses(bizData);
         setUsers(userData);
         setTickets(ticketData);
+        setGlobalSettings(settingsData);
 
         // Calculate Stats
         const active = bizData.filter(b => b.status === 'approved' && (!b.subscriptionEnd || b.subscriptionEnd > Date.now())).length;
@@ -72,24 +80,50 @@ export const AdminDashboard: React.FC<Props> = ({ user, onLogout }) => {
 
   const handleDeleteBusiness = async (id: string) => {
       if(!window.confirm("Permanently delete this business listing?")) return;
-      await deleteUser(id, 'applications');
-      loadData();
+      try {
+        await deleteUser(id, 'applications');
+        loadData();
+      } catch (e: any) {
+          console.error("Delete failed:", e);
+          alert("Error deleting business: " + (e.message || "Unknown error"));
+      }
   };
 
-  const handleDeleteUser = async (id: string) => {
-      if(!window.confirm("Permanently delete this user account? This will also remove their owned businesses.")) return;
-      await deleteUser(id, 'users');
-      // Also delete their businesses
-      const userBiz = businesses.find(b => b.owner === users.find(u => u.id === id)?.username);
-      if(userBiz) await deleteUser(userBiz.id, 'applications');
-      loadData();
+  const handleDeleteUser = async (userObj: any) => {
+      const confirmMsg = userObj.source === 'applications' 
+        ? `Delete implicit user ${userObj.username}? This will delete the associated business listing.`
+        : `Permanently delete user ${userObj.username}? This will remove their account and ANY owned businesses.`;
+      
+      if(!window.confirm(confirmMsg)) return;
+
+      try {
+          await deleteUser(userObj.id, userObj.source || 'users');
+          
+          // If explicit user, also cascade delete their businesses
+          if (userObj.source === 'users') {
+              const userApps = businesses.filter(b => b.owner === userObj.username);
+              for (const app of userApps) {
+                  await deleteUser(app.id, 'applications');
+              }
+          }
+
+          loadData();
+      } catch (e: any) {
+          console.error("Delete failed:", e);
+          alert("Failed to delete user: " + (e.message || "Unknown error"));
+      }
   };
 
-  const handleResetPassword = async (id: string) => {
-      const newPw = prompt("Enter new password for this user:");
+  const handleResetPassword = async (userObj: any) => {
+      const newPw = prompt(`Enter new password for ${userObj.username}:`);
       if(!newPw) return;
-      await updateUserPassword(id, newPw, 'users');
+      await updateUserPassword(userObj.id, newPw, userObj.source || 'users');
       alert("Password updated.");
+  };
+
+  const copyToClipboard = (text: string) => {
+      navigator.clipboard.writeText(text);
+      alert("Copied to clipboard");
   };
 
   const moveBusiness = async (index: number, direction: 'up' | 'down') => {
@@ -105,15 +139,43 @@ export const AdminDashboard: React.FC<Props> = ({ user, onLogout }) => {
       await saveBusinessOrder(updates);
   };
 
+  const handleSaveSettings = async (e: React.FormEvent) => {
+      e.preventDefault();
+      try {
+          await updateGlobalSettings(globalSettings);
+          alert("Settings updated successfully!");
+      } catch (e) {
+          console.error("Failed to save settings:", e);
+          alert("Failed to save settings.");
+      }
+  };
+
   const filteredBusinesses = businesses.filter(b => 
       b.business.toLowerCase().includes(searchTerm.toLowerCase()) || 
       b.owner.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const filteredUsers = users.filter(u => 
-      u.username.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      (u.email && u.email.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const filteredUsers = users.filter(u => {
+      const matchesSearch = (u.username || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+                            (u.email && u.email.toLowerCase().includes(searchTerm.toLowerCase()));
+      
+      if (!matchesSearch) return false;
+
+      if (userFilter === 'all') return true;
+      if (userFilter === 'admin') return u.role === 'admin';
+      if (userFilter === 'implicit') return u.source === 'applications';
+      if (userFilter === 'registered') return u.source === 'users' && u.role !== 'admin';
+      
+      return true;
+  });
+
+  // User Stats Calculation
+  const userStats = {
+      total: users.length,
+      registered: users.filter(u => u.source === 'users').length,
+      implicit: users.filter(u => u.source === 'applications').length,
+      admins: users.filter(u => u.role === 'admin').length
+  };
 
   return (
     <div className="min-h-screen bg-zinc-950 flex flex-col lg:flex-row text-white font-sans animate-fade-in">
@@ -146,6 +208,9 @@ export const AdminDashboard: React.FC<Props> = ({ user, onLogout }) => {
                         <MessageSquare size={18}/> Support 
                         {stats.openTickets > 0 && <span className="ml-auto bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full">{stats.openTickets}</span>}
                     </button>
+                    <button onClick={() => { setActiveTab('settings'); setIsMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition ${activeTab === 'settings' ? 'bg-gold text-black font-bold' : 'text-zinc-500 hover:bg-white/5 hover:text-white'}`}>
+                        <Settings size={18}/> Settings
+                    </button>
                 </nav>
 
                 <div className="p-4 border-t border-white/5 mt-auto">
@@ -174,6 +239,7 @@ export const AdminDashboard: React.FC<Props> = ({ user, onLogout }) => {
                         {activeTab === 'businesses' && 'Listing Management'}
                         {activeTab === 'users' && 'User Directory'}
                         {activeTab === 'support' && 'Support Center'}
+                        {activeTab === 'settings' && 'Global Settings'}
                     </h1>
                     <p className="text-zinc-500 text-sm">Welcome back, Administrator.</p>
                 </div>
@@ -292,115 +358,229 @@ export const AdminDashboard: React.FC<Props> = ({ user, onLogout }) => {
                         </div>
                     )}
 
-                    {/* USERS TAB */}
+                    {/* USERS TAB - REIMPLEMENTED & FIXED */}
                     {activeTab === 'users' && (
-                        <div className="space-y-8">
-                             <div className="relative">
-                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" size={18}/>
-                                <input 
-                                    type="text" 
-                                    placeholder="Search users..." 
-                                    value={searchTerm}
-                                    onChange={e => setSearchTerm(e.target.value)}
-                                    className="w-full bg-zinc-900 border border-white/5 rounded-2xl py-4 pl-12 text-white focus:border-gold/30 outline-none"
-                                />
-                            </div>
-                            <div className="glass-card rounded-[2rem] overflow-hidden border border-white/5">
+                        <div className="space-y-8 animate-fade-in">
+                             
+                             {/* User Statistics Cards */}
+                             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                                <div className="bg-zinc-900 p-6 rounded-2xl border border-white/5">
+                                    <div className="text-zinc-500 text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-2"><Users size={14}/> Total Users</div>
+                                    <div className="text-3xl text-white font-display">{userStats.total}</div>
+                                </div>
+                                <div className="bg-zinc-900 p-6 rounded-2xl border border-white/5">
+                                    <div className="text-zinc-500 text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-2"><UserCheck size={14}/> Registered</div>
+                                    <div className="text-3xl text-green-400 font-display">{userStats.registered}</div>
+                                </div>
+                                <div className="bg-zinc-900 p-6 rounded-2xl border border-white/5">
+                                    <div className="text-zinc-500 text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-2"><Ghost size={14}/> Implicit Owners</div>
+                                    <div className="text-3xl text-yellow-500 font-display">{userStats.implicit}</div>
+                                </div>
+                                <div className="bg-zinc-900 p-6 rounded-2xl border border-white/5">
+                                    <div className="text-zinc-500 text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-2"><UserCog size={14}/> Admins</div>
+                                    <div className="text-3xl text-blue-400 font-display">{userStats.admins}</div>
+                                </div>
+                             </div>
+
+                             {/* Toolbar */}
+                             <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+                                <div className="relative w-full md:max-w-md">
+                                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" size={18}/>
+                                    <input 
+                                        type="text" 
+                                        placeholder="Search by username or email..." 
+                                        value={searchTerm}
+                                        onChange={e => setSearchTerm(e.target.value)}
+                                        className="w-full bg-zinc-900 border border-white/5 rounded-2xl py-4 pl-12 text-white focus:border-gold/30 outline-none"
+                                    />
+                                </div>
+                                <div className="flex gap-2 p-1 bg-zinc-900 rounded-xl border border-white/5 overflow-x-auto max-w-full">
+                                    {(['all', 'registered', 'implicit', 'admin'] as const).map(f => (
+                                        <button 
+                                            key={f}
+                                            onClick={() => setUserFilter(f)}
+                                            className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition whitespace-nowrap ${userFilter === f ? 'bg-zinc-800 text-white shadow-lg' : 'text-zinc-500 hover:text-zinc-300'}`}
+                                        >
+                                            {f}
+                                        </button>
+                                    ))}
+                                </div>
+                             </div>
+
+                             {/* Users Table */}
+                             <div className="glass-card rounded-[2rem] overflow-hidden border border-white/5">
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-left text-sm text-zinc-400 min-w-[800px]">
                                         <thead className="bg-zinc-900 text-xs font-black uppercase tracking-widest text-zinc-500 border-b border-white/5">
                                             <tr>
-                                                <th className="p-6">Identity</th>
+                                                <th className="p-6">User</th>
                                                 <th className="p-6">Role</th>
+                                                <th className="p-6">Origin</th>
                                                 <th className="p-6">Contact</th>
-                                                <th className="p-6">Joined</th>
-                                                <th className="p-6 text-right">Security</th>
+                                                <th className="p-6 text-right">Actions</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-white/5">
-                                            {filteredUsers.map(u => (
-                                                <tr key={u.id} className="hover:bg-white/5 transition">
-                                                    <td className="p-6">
-                                                        <div className="font-bold text-white">{u.username}</div>
-                                                        <div className="text-xs">{u.displayName}</div>
-                                                    </td>
-                                                    <td className="p-6">
-                                                        <span className="bg-zinc-800 text-zinc-400 px-2 py-1 rounded text-xs font-bold uppercase">{u.role}</span>
-                                                    </td>
-                                                    <td className="p-6">{u.email}</td>
-                                                    <td className="p-6">{new Date(u.created || Date.now()).toLocaleDateString()}</td>
-                                                    <td className="p-6 text-right">
-                                                        <div className="flex justify-end gap-2">
-                                                            <button onClick={() => handleResetPassword(u.id)} className="p-2 hover:bg-zinc-800 rounded-lg text-blue-400 transition" title="Reset Password"><Lock size={16}/></button>
-                                                            <button onClick={() => handleDeleteUser(u.id)} className="p-2 hover:bg-red-900/20 rounded-lg text-red-500 transition" title="Delete User"><Trash2 size={16}/></button>
-                                                        </div>
-                                                    </td>
+                                            {filteredUsers.length === 0 ? (
+                                                <tr>
+                                                    <td colSpan={5} className="p-12 text-center text-zinc-600 italic">No users found matching your filters.</td>
                                                 </tr>
-                                            ))}
+                                            ) : (
+                                                filteredUsers.map((u, i) => (
+                                                    <tr key={i} className="hover:bg-white/5 transition">
+                                                        <td className="p-6">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center text-white font-black">
+                                                                    {u.username.charAt(0).toUpperCase()}
+                                                                </div>
+                                                                <div>
+                                                                    <div className="font-bold text-white">{u.username}</div>
+                                                                    <div className="text-[10px] uppercase text-zinc-600">ID: {u.id.substring(0,6)}...</div>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                        <td className="p-6">
+                                                            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${u.role === 'admin' ? 'border-blue-500/30 text-blue-500 bg-blue-500/10' : 'border-zinc-700 bg-zinc-800 text-zinc-400'}`}>
+                                                                {u.role}
+                                                            </span>
+                                                        </td>
+                                                        <td className="p-6">
+                                                            {u.source === 'users' ? (
+                                                                <div className="flex items-center gap-2 text-green-500 text-xs font-bold">
+                                                                    <Database size={14} /> Registered
+                                                                </div>
+                                                            ) : (
+                                                                <div className="flex items-center gap-2 text-yellow-500 text-xs font-bold" title="User account created implicitly via Business Application">
+                                                                    <Ghost size={14} /> Implicit
+                                                                </div>
+                                                            )}
+                                                        </td>
+                                                        <td className="p-6 text-xs font-mono text-zinc-500">
+                                                            {u.email || u.contactInfo || 'N/A'}
+                                                        </td>
+                                                        <td className="p-6 text-right">
+                                                            <div className="flex justify-end gap-2">
+                                                                <button onClick={() => handleResetPassword(u)} className="p-2 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-white transition" title="Reset Password">
+                                                                    <Lock size={16}/>
+                                                                </button>
+                                                                <button onClick={() => handleDeleteUser(u)} className="p-2 hover:bg-red-900/20 rounded-lg text-red-500 transition" title="Delete User">
+                                                                    <Trash2 size={16}/>
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                            )}
                                         </tbody>
                                     </table>
                                 </div>
-                            </div>
+                             </div>
                         </div>
                     )}
 
                     {/* SUPPORT TAB */}
                     {activeTab === 'support' && (
-                        <div className="grid grid-cols-1 gap-4">
-                            {tickets.length === 0 ? (
-                                <div className="p-12 text-center text-zinc-500">No support tickets found.</div>
-                            ) : (
-                                tickets.map(t => (
-                                    <div key={t.id} className={`glass-card p-6 rounded-2xl border flex items-start gap-4 ${t.status === 'open' ? 'border-gold/30 bg-gold/5' : 'border-white/5'}`}>
-                                        <div className={`mt-1 p-2 rounded-full ${t.status === 'open' ? 'bg-gold text-black' : 'bg-zinc-800 text-zinc-500'}`}>
-                                            <MessageSquare size={16}/>
-                                        </div>
-                                        <div className="flex-1">
-                                            <div className="flex justify-between items-start mb-2">
-                                                <div>
-                                                    <h3 className="text-white font-bold">{t.category}</h3>
-                                                    <div className="text-xs text-zinc-400">From: {t.email} • {new Date(t.date).toLocaleDateString()}</div>
-                                                </div>
-                                                <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded ${t.status === 'open' ? 'bg-red-500 text-white' : 'bg-zinc-800 text-zinc-500'}`}>{t.status}</span>
+                        <div className="space-y-8">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {tickets.map(t => (
+                                    <div key={t.id} className={`glass-card p-6 rounded-3xl border border-white/5 group relative ${t.status === 'closed' ? 'opacity-60' : ''}`}>
+                                        <div className="flex justify-between items-start mb-4">
+                                            <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${t.status === 'open' ? 'bg-red-500/10 text-red-500' : 'bg-green-500/10 text-green-500'}`}>
+                                                {t.status}
                                             </div>
-                                            <p className="text-zinc-300 text-sm mb-4 bg-black/20 p-3 rounded-lg border border-white/5">"{t.message}"</p>
-                                            {t.reply && (
-                                                <div className="mb-4 ml-4 pl-4 border-l-2 border-gold/30 text-sm">
-                                                    <div className="text-[10px] font-black uppercase text-gold mb-1">Admin Reply</div>
-                                                    <p className="text-zinc-400">{t.reply}</p>
-                                                </div>
-                                            )}
+                                            <span className="text-[10px] text-zinc-600">{new Date(t.date).toLocaleDateString()}</span>
+                                        </div>
+                                        <h3 className="font-bold text-white mb-1">{t.category}</h3>
+                                        <p className="text-xs text-zinc-500 mb-4 font-mono">{t.email}</p>
+                                        <p className="text-zinc-400 text-sm mb-6 line-clamp-3 bg-zinc-950 p-4 rounded-xl border border-white/5">"{t.message}"</p>
+                                        <div className="flex gap-2">
                                             {t.status === 'open' && (
-                                                <button onClick={() => setReplyTicket(t)} className="text-xs font-bold bg-white text-black px-4 py-2 rounded-lg hover:bg-gold transition flex items-center gap-2">
-                                                    Reply & Close <ExternalLink size={12}/>
+                                                <button onClick={() => setReplyTicket(t)} className="flex-1 py-3 bg-gold text-black rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-white transition">
+                                                    Reply
                                                 </button>
                                             )}
+                                            <button onClick={() => updateTicketStatus(t.id, t.status === 'open' ? 'closed' : 'open').then(loadData)} className="p-3 bg-zinc-800 text-zinc-400 rounded-xl hover:text-white transition">
+                                                {t.status === 'open' ? <CheckCircle size={18}/> : <RefreshCw size={18}/>}
+                                            </button>
                                         </div>
                                     </div>
-                                ))
-                            )}
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                    
+                    {/* SETTINGS TAB */}
+                    {activeTab === 'settings' && (
+                        <div className="max-w-2xl mx-auto space-y-8 animate-fade-in">
+                            <div className="bg-zinc-900 p-8 rounded-[2.5rem] border border-white/5">
+                                <div className="flex items-center gap-4 mb-8 pb-8 border-b border-white/5">
+                                    <div className="w-16 h-16 bg-zinc-800 rounded-2xl flex items-center justify-center text-gold shadow-xl">
+                                        <Settings size={32} />
+                                    </div>
+                                    <div>
+                                        <h2 className="font-display text-2xl text-white uppercase tracking-tight">Global Configuration</h2>
+                                        <p className="text-zinc-500 text-sm">Manage site-wide contact information displayed in the footer.</p>
+                                    </div>
+                                </div>
+                                
+                                <form onSubmit={handleSaveSettings} className="space-y-6">
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-bold text-zinc-500 uppercase tracking-widest ml-1 flex items-center gap-2">
+                                            <MapPin size={14}/> Organization Name / Location
+                                        </label>
+                                        <input 
+                                            type="text" 
+                                            value={globalSettings.contactName} 
+                                            onChange={e => setGlobalSettings({...globalSettings, contactName: e.target.value})}
+                                            className="w-full bg-black/40 border border-white/5 rounded-xl p-4 text-white focus:border-gold/30 outline-none transition"
+                                            placeholder="Gwynn Park High"
+                                        />
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-bold text-zinc-500 uppercase tracking-widest ml-1 flex items-center gap-2">
+                                            <Mail size={14}/> Support Email
+                                        </label>
+                                        <input 
+                                            type="email" 
+                                            value={globalSettings.contactEmail} 
+                                            onChange={e => setGlobalSettings({...globalSettings, contactEmail: e.target.value})}
+                                            className="w-full bg-black/40 border border-white/5 rounded-xl p-4 text-white focus:border-gold/30 outline-none transition"
+                                            placeholder="support@gphs.edu"
+                                        />
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-bold text-zinc-500 uppercase tracking-widest ml-1 flex items-center gap-2">
+                                            <Phone size={14}/> Contact Phone
+                                        </label>
+                                        <input 
+                                            type="text" 
+                                            value={globalSettings.contactPhone} 
+                                            onChange={e => setGlobalSettings({...globalSettings, contactPhone: e.target.value})}
+                                            className="w-full bg-black/40 border border-white/5 rounded-xl p-4 text-white focus:border-gold/30 outline-none transition"
+                                            placeholder="(240) 623-8773"
+                                        />
+                                    </div>
+
+                                    <div className="pt-8 flex justify-end">
+                                        <button 
+                                            type="submit" 
+                                            className="bg-gold text-black font-black uppercase text-xs tracking-widest px-8 py-4 rounded-xl hover:bg-white transition shadow-xl shadow-gold/10 flex items-center gap-2"
+                                        >
+                                            <Save size={18} /> Save Configuration
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
                         </div>
                     )}
                 </>
             )}
+
+            {editingBusiness && <EditBusinessModal business={editingBusiness} onClose={() => setEditingBusiness(null)} onRefresh={loadData} isAdmin={true} />}
+            {replyTicket && <ReplyModal ticket={replyTicket} onClose={() => setReplyTicket(null)} onRefresh={loadData} />}
         </main>
-
-        {editingBusiness && (
-            <EditBusinessModal 
-                business={editingBusiness} 
-                onClose={() => setEditingBusiness(null)} 
-                onRefresh={loadData} 
-                isAdmin={true} 
-            />
-        )}
-
-        {replyTicket && (
-            <ReplyModal 
-                ticket={replyTicket} 
-                onClose={() => setReplyTicket(null)} 
-                onRefresh={loadData} 
-            />
-        )}
     </div>
   );
 };

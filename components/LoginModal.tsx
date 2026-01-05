@@ -4,7 +4,7 @@ import { loginUser, registerUser } from '../firebase';
 
 interface Props {
   onClose: () => void;
-  onLogin: (user: any) => void;
+  onLogin: (user: any, rememberMe: boolean) => void;
   initialView?: 'login' | 'signup';
 }
 
@@ -15,6 +15,7 @@ export const LoginModal: React.FC<Props> = ({ onClose, onLogin, initialView = 'l
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [email, setEmail] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -30,7 +31,7 @@ export const LoginModal: React.FC<Props> = ({ onClose, onLogin, initialView = 'l
     try {
         const user = await loginUser(username, password);
         if (user) {
-            onLogin(user);
+            onLogin(user, rememberMe);
         } else {
             setError('Invalid credentials.');
         }
@@ -47,7 +48,7 @@ export const LoginModal: React.FC<Props> = ({ onClose, onLogin, initialView = 'l
       setError('');
       try {
           const user = await registerUser(username, password, email);
-          onLogin(user);
+          onLogin(user, rememberMe);
       } catch (err: any) {
           setError(err.message || 'Registration failed.');
       } finally {
@@ -182,6 +183,17 @@ export const LoginModal: React.FC<Props> = ({ onClose, onLogin, initialView = 'l
                                         required
                                     />
                                 </div>
+                            </div>
+                            
+                            {/* Remember Me Checkbox */}
+                            <div className="flex items-center gap-2 px-1">
+                                <div 
+                                    className={`w-5 h-5 rounded border border-white/10 flex items-center justify-center cursor-pointer transition ${rememberMe ? 'bg-gold-500 border-gold-500 text-black' : 'bg-zinc-900 text-transparent'}`}
+                                    onClick={() => setRememberMe(!rememberMe)}
+                                >
+                                    <Check size={14} strokeWidth={4} />
+                                </div>
+                                <label onClick={() => setRememberMe(!rememberMe)} className="text-zinc-500 text-xs font-bold uppercase tracking-wide cursor-pointer select-none">Remember Me</label>
                             </div>
 
                             <button 

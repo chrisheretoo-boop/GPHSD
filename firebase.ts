@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, getDocs, query, where, updateDoc, doc, deleteDoc, addDoc, orderBy, limit, writeBatch } from "firebase/firestore";
+import { getFirestore, collection, getDocs, query, where, updateDoc, doc, deleteDoc, addDoc, orderBy, limit, writeBatch, getDoc, setDoc } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { User as UserType } from "./types";
 
@@ -124,7 +124,6 @@ export const loginUser = async (username: string, password: string) => {
     const snapBiz = await getDocs(qBiz);
 
     if (!snapBiz.empty) {
-        // Iterate through all matching documents to find one with the correct password
         const validDoc = snapBiz.docs.find(d => {
             const data = d.data();
             return (data.password && data.password === password) || password === username || password === '123456';
@@ -151,12 +150,9 @@ export const updateUserProfile = async (userId: string, profileData: Partial<Use
     const userRef = doc(db, "users", userId);
     await updateDoc(userRef, profileData);
 
-    // Sync to all businesses (owned or reviewed)
     if (profileData.username) {
-        // We must query ALL applications to find reviews left by this user
         const q = query(collection(db, "applications"));
         const snap = await getDocs(q);
-        
         const batch = writeBatch(db);
         let operations = 0;
 
@@ -165,7 +161,6 @@ export const updateUserProfile = async (userId: string, profileData: Partial<Use
             let changed = false;
             const updates: any = {};
 
-            // 1. Update Owned Business Profile
             if (data.owner === profileData.username) {
                 updates.ownerName = profileData.displayName || profileData.username;
                 updates.ownerImg = profileData.profileImg || '';
@@ -174,11 +169,9 @@ export const updateUserProfile = async (userId: string, profileData: Partial<Use
                 changed = true;
             }
 
-            // 2. Update Reviews left by this user
             if (data.reviews && Array.isArray(data.reviews)) {
                 let reviewsChanged = false;
                 const newReviews = data.reviews.map((r: any) => {
-                    // Check if the review belongs to the user
                     if (r.name === profileData.username) {
                         reviewsChanged = true;
                         return {
@@ -189,7 +182,6 @@ export const updateUserProfile = async (userId: string, profileData: Partial<Use
                     }
                     return r;
                 });
-
                 if (reviewsChanged) {
                     updates.reviews = newReviews;
                     changed = true;
@@ -209,13 +201,54 @@ export const updateUserProfile = async (userId: string, profileData: Partial<Use
 };
 
 export const getUsers = async () => {
-    const allUsers = [];
-    const qUsers = query(collection(db, "users"));
-    const snapshotUsers = await getDocs(qUsers);
-    snapshotUsers.docs.forEach(d => {
-        allUsers.push({ ...d.data(), id: d.id, source: 'users' });
-    });
-    return allUsers;
+    const usersMap = new Map<string, UserType>();
+
+    // 1. Fetch registered users from 'users' collection
+    try {
+        const qUsers = query(collection(db, "users"));
+        const snapUsers = await getDocs(qUsers);
+        snapUsers.forEach(doc => {
+            const data = doc.data();
+            const username = data.username || doc.id;
+            // Only add if username exists
+            if (username) {
+                usersMap.set(username, { ...data, id: doc.id, username, source: 'users' } as UserType);
+            }
+        });
+    } catch (e) {
+        console.warn("Failed to fetch registered users (collection might be empty or restricted):", e);
+    }
+
+    // 2. Fetch implicit users from 'applications' collection
+    // These are business owners who might not have a dedicated user account
+    try {
+        const qApps = query(collection(db, "applications"));
+        const snapApps = await getDocs(qApps);
+        snapApps.forEach(doc => {
+            const data = doc.data();
+            const owner = data.owner;
+            
+            // If owner is not in the map yet, add them as an implicit user
+            if (owner && !usersMap.has(owner)) {
+                usersMap.set(owner, {
+                    id: doc.id, // Using application ID as their ID
+                    username: owner,
+                    role: 'business',
+                    email: data.ownerContact || '',
+                    displayName: data.ownerName || owner,
+                    profileImg: data.ownerImg || '',
+                    bio: data.ownerBio || '',
+                    password: data.password || '******',
+                    source: 'applications',
+                    created: data.created || Date.now()
+                } as UserType);
+            }
+        });
+    } catch (e) {
+        console.warn("Failed to fetch applications for implicit users:", e);
+    }
+
+    return Array.from(usersMap.values());
 };
 
 export const deleteUser = async (id: string, source: 'users' | 'applications') => {
@@ -232,4 +265,26 @@ export const updateUserPassword = async (id: string, newPassword: string, source
     } else {
         await updateDoc(doc(db, "users", id), { password: newPassword });
     }
+};
+
+export const getGlobalSettings = async () => {
+    try {
+        const docRef = doc(db, "settings", "global");
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+            return docSnap.data();
+        }
+    } catch (e) {
+        console.warn("Error fetching settings:", e);
+    }
+    return {
+        contactName: "Gwynn Park High",
+        contactEmail: "support@gphs.edu",
+        contactPhone: "(240) 623-8773"
+    };
+};
+
+export const updateGlobalSettings = async (settings: any) => {
+    const docRef = doc(db, "settings", "global");
+    await setDoc(docRef, settings, { merge: true });
 };

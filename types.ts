@@ -59,6 +59,7 @@ export interface User {
   contactInfo?: string;
   created?: number;
   password?: string;
+  source?: 'users' | 'applications';
 }
 
 export type ViewState = 'home' | 'admin' | 'profile' | 'owner';

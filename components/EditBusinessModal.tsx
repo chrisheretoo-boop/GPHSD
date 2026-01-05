@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Business } from '../types';
-import { db, uploadImage } from '../firebase';
+import { db, uploadImage, deleteUser } from '../firebase';
 import { doc, updateDoc } from 'firebase/firestore';
-import { X, Save, Trash2, CheckCircle, Image as ImageIcon, Calendar, Star, Plus, Link, AlertTriangle, Instagram, Twitter, Facebook, Globe, Phone, Mail, Loader2, User, Upload, Camera, BadgeCheck, Store, MapPin, Clock, DollarSign, Sparkles } from 'lucide-react';
+import { X, Save, Trash2, CheckCircle, Image as ImageIcon, Calendar, Star, Plus, Link, AlertTriangle, Instagram, Twitter, Facebook, Globe, Phone, Mail, Loader2, User, Upload, Camera, BadgeCheck, Store, MapPin, Clock, DollarSign, Sparkles, RefreshCw } from 'lucide-react';
 
 interface Props {
   business: Business;
@@ -18,7 +18,6 @@ export const EditBusinessModal: React.FC<Props> = ({ business, onClose, onRefres
   const [subDays, setSubDays] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [newImageUrl, setNewImageUrl] = useState('');
-  const [customDays, setCustomDays] = useState(30);
   
   // Separate state for social links
   const [socialLinks, setSocialLinks] = useState({ instagram: '', twitter: '', facebook: '', website: '' });
@@ -43,13 +42,18 @@ export const EditBusinessModal: React.FC<Props> = ({ business, onClose, onRefres
     });
     setSocialLinks(newLinks);
 
-    // Calculate remaining days
+    // Calculate remaining days based on business data initially
+    calculateDays(business.subscriptionEnd);
+  }, [business]);
+
+  const calculateDays = (endTime: number | undefined) => {
     const now = Date.now();
-    const end = Number(business.subscriptionEnd) || 0; // Ensure number
+    const end = Number(endTime) || 0;
     const diff = end - now;
+    // If diff is negative (expired), we can show negative days or just treat as 0/expired logic
     const days = Math.ceil(diff / 86400000);
     setSubDays(days);
-  }, [business]);
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -84,18 +88,49 @@ export const EditBusinessModal: React.FC<Props> = ({ business, onClose, onRefres
     }
   };
 
+  // Modified to update local state only
   const addTime = (days: number) => {
-    // Explicitly cast to Number to avoid string concatenation if data is malformed
-    const subEnd = Number(business.subscriptionEnd);
-    const currentEnd = (subEnd && subEnd > Date.now()) ? subEnd : Date.now();
+    const now = Date.now();
+    // Use current formData subscriptionEnd or default to now
+    const currentEnd = (typeof formData.subscriptionEnd === 'number' && formData.subscriptionEnd > now) 
+        ? formData.subscriptionEnd 
+        : now;
+    
     const newEnd = currentEnd + (days * 86400000);
     
-    const ref = doc(db, "applications", business.id);
-    updateDoc(ref, { subscriptionEnd: newEnd }).then(async () => {
-        setSubDays(prev => prev + days);
-        alert(`Successfully adjusted subscription by ${days} days.`);
-        if(onRefresh) await onRefresh();
-    });
+    // Update form data
+    setFormData(prev => ({ ...prev, subscriptionEnd: newEnd }));
+    
+    // Update UI display
+    calculateDays(newEnd);
+  };
+
+  // Modified to update local state only
+  const setExpired = () => {
+      setFormData(prev => ({ ...prev, subscriptionEnd: 0 }));
+      setSubDays(-1);
+  };
+
+  const deleteBusiness = async () => {
+      if(!business?.id) {
+          alert("Error: Business record is missing an ID.");
+          return;
+      }
+      if(!window.confirm("Permanently delete this business listing? This action cannot be undone.")) return;
+      
+      setLoading(true);
+      try {
+          // Use shared deleteUser helper which handles proper deletion for applications
+          await deleteUser(business.id, 'applications');
+          
+          if(onRefresh) await onRefresh();
+          onClose();
+      } catch (e: any) {
+          console.error("Delete failed:", e);
+          alert("Error deleting business: " + (e.message || "Unknown error occurred."));
+      } finally {
+          setLoading(false);
+      }
   };
 
   const deleteImage = async (index: number) => {
@@ -321,44 +356,52 @@ export const EditBusinessModal: React.FC<Props> = ({ business, onClose, onRefres
           {activeTab === 'admin' && isAdmin && (
             <div className="space-y-8">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Featured Toggle */}
+                  {/* Featured Status Button */}
                   <div className="bg-zinc-900 p-6 rounded-2xl border border-white/10 flex items-center justify-between hover:border-gold-400/30 transition">
                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-gold-400/10 rounded-xl flex items-center justify-center text-gold-400"><Star size={24}/></div>
+                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition ${formData.featured ? 'bg-gold-400 text-black' : 'bg-zinc-800 text-zinc-600'}`}>
+                            <Star size={24} fill={formData.featured ? "black" : "none"} />
+                        </div>
                         <div>
-                            <h3 className="font-bold text-white text-lg">Featured Business</h3>
-                            <p className="text-zinc-500 text-xs">Display on homepage hero.</p>
+                            <h3 className="font-bold text-white text-lg">Featured</h3>
+                            <p className="text-zinc-500 text-xs">Highlight on homepage.</p>
                         </div>
                      </div>
-                     <label className="relative inline-flex items-center cursor-pointer">
-                        <input 
-                            type="checkbox" 
-                            checked={formData.featured || false} 
-                            onChange={(e) => setFormData({...formData, featured: e.target.checked})} 
-                            className="sr-only peer" 
-                        />
-                        <div className="w-14 h-8 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-gold-400"></div>
-                     </label>
+                     <button 
+                        type="button"
+                        onClick={() => setFormData({...formData, featured: !formData.featured})}
+                        className={`px-5 py-2 rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all ${
+                            formData.featured 
+                            ? 'bg-gold-400 text-black shadow-lg shadow-gold-400/25' 
+                            : 'bg-zinc-800 text-zinc-500 hover:bg-zinc-700 hover:text-white'
+                        }`}
+                     >
+                        {formData.featured ? 'Active' : 'Turn On'}
+                     </button>
                   </div>
 
-                  {/* Verified Toggle */}
+                  {/* Verified Status Button */}
                   <div className="bg-zinc-900 p-6 rounded-2xl border border-white/10 flex items-center justify-between hover:border-blue-500/30 transition">
                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-blue-500/10 rounded-xl flex items-center justify-center text-blue-400"><BadgeCheck size={24}/></div>
+                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition ${formData.verified ? 'bg-blue-500 text-white' : 'bg-zinc-800 text-zinc-600'}`}>
+                            <BadgeCheck size={24} />
+                        </div>
                         <div>
-                            <h3 className="font-bold text-white text-lg">Verified Business</h3>
-                            <p className="text-zinc-500 text-xs">Mark as officially trusted.</p>
+                            <h3 className="font-bold text-white text-lg">Verified</h3>
+                            <p className="text-zinc-500 text-xs">Official trust badge.</p>
                         </div>
                      </div>
-                     <label className="relative inline-flex items-center cursor-pointer">
-                        <input 
-                            type="checkbox" 
-                            checked={formData.verified || false} 
-                            onChange={(e) => setFormData({...formData, verified: e.target.checked})} 
-                            className="sr-only peer" 
-                        />
-                        <div className="w-14 h-8 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-blue-500"></div>
-                     </label>
+                     <button 
+                        type="button"
+                        onClick={() => setFormData({...formData, verified: !formData.verified})}
+                        className={`px-5 py-2 rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all ${
+                            formData.verified 
+                            ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/25' 
+                            : 'bg-zinc-800 text-zinc-500 hover:bg-zinc-700 hover:text-white'
+                        }`}
+                     >
+                        {formData.verified ? 'Verified' : 'Turn On'}
+                     </button>
                   </div>
               </div>
 
@@ -388,39 +431,34 @@ export const EditBusinessModal: React.FC<Props> = ({ business, onClose, onRefres
                        )}
                     </div>
 
-                    {/* Controls */}
+                    {/* Controls - RESTORED CUSTOM BUTTONS & TIMER */}
                     <div className="bg-black/40 p-6 rounded-2xl border border-white/5">
-                        <div className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-4">Modify Duration</div>
-                        <div className="flex flex-col gap-4">
-                            <div className="flex gap-2">
-                                 <select 
-                                    onChange={(e) => setCustomDays(Number(e.target.value))}
-                                    className="flex-1 bg-zinc-900 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:border-gold-400 outline-none transition"
-                                    defaultValue={30}
-                                 >
-                                    <option value={7}>1 Week (+7 days)</option>
-                                    <option value={30}>1 Month (+30 days)</option>
-                                    <option value={90}>3 Months (+90 days)</option>
-                                    <option value={180}>6 Months (+180 days)</option>
-                                    <option value={365}>1 Year (+365 days)</option>
-                                    <option value={-7}>Revoke 1 Week (-7 days)</option>
-                                    <option value={-30}>Revoke 1 Month (-30 days)</option>
-                                 </select>
-                                 <input 
-                                    type="number"
-                                    value={customDays}
-                                    onChange={(e) => setCustomDays(Number(e.target.value))}
-                                    className="w-24 bg-zinc-900 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:border-gold-400 outline-none text-center font-bold"
-                                    placeholder="Days"
-                                 />
-                            </div>
-                            <button 
-                                onClick={() => addTime(customDays)}
-                                className="w-full bg-white text-black px-6 py-4 rounded-xl font-black uppercase text-xs tracking-widest hover:bg-gold-400 transition shadow-lg"
-                            >
-                                Apply Adjustment
-                            </button>
+                        <div className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-4">Quick Modify</div>
+                        
+                        <div className="grid grid-cols-2 gap-3 mb-4">
+                            <button onClick={() => addTime(7)} className="bg-zinc-800 hover:bg-zinc-700 text-white py-2 rounded-lg text-xs font-bold transition">+1 Week</button>
+                            <button onClick={() => addTime(30)} className="bg-zinc-800 hover:bg-zinc-700 text-white py-2 rounded-lg text-xs font-bold transition">+1 Month</button>
+                            <button onClick={() => addTime(90)} className="bg-zinc-800 hover:bg-zinc-700 text-white py-2 rounded-lg text-xs font-bold transition">+3 Months</button>
+                            <button onClick={setExpired} className="bg-red-500/10 hover:bg-red-500/20 text-red-500 py-2 rounded-lg text-xs font-bold transition border border-red-500/20">Expire Now</button>
                         </div>
+
+                        <div className="h-px bg-white/5 my-4"></div>
+
+                        <div className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-2">Custom Days</div>
+                        <div className="flex gap-2">
+                             <button 
+                                onClick={() => addTime(-1)} 
+                                className="w-10 h-10 bg-zinc-800 rounded-lg flex items-center justify-center hover:bg-gold-400 hover:text-black transition"
+                             >-</button>
+                             <div className="flex-1 bg-zinc-900 border border-white/10 rounded-lg flex items-center justify-center text-white font-mono">
+                                 {subDays > 0 ? `+${subDays}` : subDays}
+                             </div>
+                             <button 
+                                onClick={() => addTime(1)} 
+                                className="w-10 h-10 bg-zinc-800 rounded-lg flex items-center justify-center hover:bg-gold-400 hover:text-black transition"
+                             >+</button>
+                        </div>
+                        <p className="text-[10px] text-zinc-600 mt-3 text-center">Changes saved on confirmation.</p>
                     </div>
                 </div>
               </div>
@@ -429,27 +467,36 @@ export const EditBusinessModal: React.FC<Props> = ({ business, onClose, onRefres
         </div>
 
         {/* Footer Actions */}
-        <div className="p-8 border-t border-white/10 bg-zinc-950 flex gap-4">
-           {isAdmin && (
-             <>
+        <div className="p-8 border-t border-white/10 bg-zinc-950 flex justify-between items-center gap-4">
+           {/* DELETE BUTTON ADDED BACK */}
+           <button 
+                type="button"
+                onClick={deleteBusiness}
+                className="bg-red-900/10 text-red-500 border border-red-900/30 p-4 rounded-xl font-bold hover:bg-red-900/30 transition uppercase flex items-center gap-2 tracking-wide text-xs"
+           >
+               <Trash2 size={18} /> <span className="hidden md:inline">Delete Business</span>
+           </button>
+
+           <div className="flex gap-4 flex-1 justify-end">
+               {isAdmin && (
+                 <button 
+                    type="button"
+                    onClick={() => handleSave(true)} 
+                    disabled={loading}
+                    className="bg-green-900/20 text-green-500 border border-green-900/50 p-4 rounded-xl font-bold hover:bg-green-900/40 transition uppercase flex justify-center items-center gap-2 disabled:opacity-50 tracking-wide text-xs px-6"
+                 >
+                    {loading ? 'Processing...' : <><CheckCircle size={18} /> Approve</>}
+                 </button>
+               )}
                <button 
                   type="button"
-                  onClick={() => handleSave(true)} 
+                  onClick={() => handleSave(false)} 
                   disabled={loading}
-                  className="flex-1 bg-green-900/20 text-green-500 border border-green-900/50 p-4 rounded-xl font-bold hover:bg-green-900/40 transition uppercase flex justify-center items-center gap-2 disabled:opacity-50 tracking-wide text-xs"
+                  className="bg-gold-400 text-black p-4 rounded-xl font-black hover:bg-white transition uppercase flex justify-center items-center gap-2 disabled:opacity-50 tracking-widest text-xs shadow-xl shadow-gold-400/20 px-8"
                >
-                  {loading ? 'Processing...' : <><CheckCircle size={18} /> Approve</>}
+                  {loading ? 'Saving...' : <><Save size={18} /> Save Changes</>}
                </button>
-             </>
-           )}
-           <button 
-              type="button"
-              onClick={() => handleSave(false)} 
-              disabled={loading}
-              className="flex-[2] bg-gold-400 text-black p-4 rounded-xl font-black hover:bg-white transition uppercase flex justify-center items-center gap-2 disabled:opacity-50 tracking-widest text-xs shadow-xl shadow-gold-400/20"
-           >
-              {loading ? 'Saving...' : <><Save size={18} /> Save Changes</>}
-           </button>
+           </div>
         </div>
 
         {/* Loading Overlay */}
