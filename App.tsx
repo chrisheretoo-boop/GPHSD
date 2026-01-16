@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { ViewState, Business, SupportTicket, User as UserType } from './types';
 import { db, getBusinesses, getFeaturedBusiness, getSupportTickets, updateTicketStatus, getUsers, deleteUser, updateUserPassword, updateUserProfile, uploadImage, getGlobalSettings } from './firebase';
@@ -16,8 +17,8 @@ import { Search, ShieldCheck, LogOut, LayoutDashboard, User, X, Star, ArrowRight
 // --- SHARED COMPONENTS ---
 
 const DeleteConfirmationModal = ({ title, message, onConfirm, onCancel, loading }: { title: string, message: string, onConfirm: () => void, onCancel: () => void, loading: boolean }) => (
-    <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/95 backdrop-blur-xl p-4 animate-fade-in">
-        <div className="bg-zinc-900 w-full max-w-md rounded-[3rem] border border-red-500/20 shadow-2xl p-12 text-center relative overflow-hidden">
+    <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/95 backdrop-blur-xl p-4">
+        <div className="bg-zinc-900 w-full max-w-md rounded-[3rem] border border-red-500/20 shadow-2xl p-12 text-center relative overflow-hidden animate-fade-in">
             <div className="absolute top-0 left-0 w-full h-1 bg-red-500 opacity-20"></div>
             <div className="w-24 h-24 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-8 text-red-500 ring-8 ring-red-500/5">
                 <Trash2 size={44} />
@@ -92,6 +93,27 @@ const Advertisement = ({ onRegister }: { onRegister: () => void }) => (
                     <p className="text-zinc-500 text-lg leading-relaxed max-w-md font-medium">
                         Join the official GPHS Directory. Gain visibility, connect with fellow students, and grow your customer base instantly.
                     </p>
+
+                     {/* Selling Points */}
+                    <div className="grid gap-6 border-l-2 border-white/10 pl-6 my-8">
+                        <div className="space-y-1">
+                             <div className="flex items-center gap-2 text-white font-bold text-sm uppercase tracking-wide">
+                                 <LifeBuoy size={16} className="text-gold"/> Integrated Help Desk
+                             </div>
+                             <p className="text-zinc-500 text-xs leading-relaxed max-w-sm">
+                                 Professionalize your operations with a built-in customer support ticketing system. Manage inquiries directly from your dashboard.
+                             </p>
+                        </div>
+                        <div className="space-y-1">
+                             <div className="flex items-center gap-2 text-white font-bold text-sm uppercase tracking-wide">
+                                 <Users size={16} className="text-blue-500"/> Direct Community Access
+                             </div>
+                             <p className="text-zinc-500 text-xs leading-relaxed max-w-sm">
+                                 Reach the entire student body and faculty through a verified, centralized platform designed for growth.
+                             </p>
+                        </div>
+                    </div>
+
                     <div className="flex flex-wrap gap-4">
                         <button onClick={onRegister} className="px-10 py-4 bg-white text-black rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-gold transition shadow-xl shadow-white/5 transform active:scale-95 flex items-center gap-2">
                             <Plus size={16}/> Start Listing
@@ -213,6 +235,12 @@ const CategoryFilter = ({ active, onSelect }: any) => {
   );
 };
 
+const getAverageRating = (reviews: any[]) => {
+    if (!reviews || reviews.length === 0) return 0;
+    const sum = reviews.reduce((acc: number, r: any) => acc + r.rating, 0);
+    return (sum / reviews.length).toFixed(1);
+};
+
 const Grid = ({ businesses, onSelect }: any) => (
   <div className="max-w-7xl mx-auto px-6 py-12">
     {businesses.length === 0 ? (
@@ -224,8 +252,11 @@ const Grid = ({ businesses, onSelect }: any) => (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10">
         {businesses.map((b: any) => {
             const isExpired = b.subscriptionEnd && Number(b.subscriptionEnd) < Date.now();
+            const rating = getAverageRating(b.reviews);
+            const reviewCount = b.reviews ? b.reviews.length : 0;
+
             return (
-            <div key={b.id} onClick={() => onSelect(b)} className="glass-card rounded-[2.5rem] overflow-hidden group cursor-pointer flex flex-col h-full">
+            <div key={b.id} onClick={() => onSelect(b)} className="glass-card rounded-[2.5rem] overflow-hidden group cursor-pointer flex flex-col h-full relative">
                 <div className="h-72 overflow-hidden relative">
                     <div className="absolute top-6 right-6 z-20 flex gap-2">
                          {b.verified && (
@@ -236,6 +267,16 @@ const Grid = ({ businesses, onSelect }: any) => (
                          {b.featured && <div className="bg-gold text-black p-2 rounded-xl shadow-xl"><Star size={14} fill="black" /></div>}
                          {isExpired && <div className="bg-red-500 text-white px-3 py-1 text-[10px] font-black rounded-lg uppercase tracking-widest">Expired</div>}
                     </div>
+                    
+                    {/* Rating Overlay */}
+                    {reviewCount > 0 && (
+                        <div className="absolute top-6 left-6 z-20 flex items-center gap-1.5 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 text-white">
+                            <Star size={12} className="text-gold fill-gold" />
+                            <span className="text-xs font-bold">{rating}</span>
+                            <span className="text-[10px] text-zinc-400">({reviewCount})</span>
+                        </div>
+                    )}
+
                     <img src={b.images[0] || b.imageURL || ''} className="w-full h-full object-cover group-hover:scale-110 transition duration-700 grayscale-[20%] group-hover:grayscale-0" />
                     <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-transparent to-transparent opacity-80" />
                     <div className="absolute bottom-6 left-6 z-20">
@@ -565,127 +606,102 @@ const App = () => {
       )}
 
       {view === 'admin' && user?.role === 'admin' && (
-        <AdminDashboard user={user} onLogout={handleLogout} />
+        <AdminDashboard user={user} onLogout={handleLogout} onNav={setView} />
       )}
 
       {view === 'chat' && user && (
-          <ChatInterface user={user} onClose={() => setView('home')} />
+          <ChatInterface user={user} onClose={() => setView(user.role === 'admin' ? 'admin' : 'home')} />
       )}
 
       {view === 'owner' && user && (
-          <div className="pt-40 pb-32 px-6 lg:px-16 max-w-7xl mx-auto min-h-screen animate-fade-in">
-              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end mb-24 gap-12">
-                <div className="space-y-6">
-                   <div className="flex items-center gap-4 text-gold text-[10px] font-black uppercase tracking-[0.5em]">
-                       <Fingerprint size={18}/> Admin Authorized
-                   </div>
-                   <h1 className="font-display text-7xl md:text-8xl text-white uppercase leading-[0.8] tracking-tighter">Command <br/><span className="text-gradient">Portfolio</span></h1>
-                </div>
-                <div className="flex flex-wrap gap-4 w-full lg:w-auto">
-                    <button onClick={() => setShowCreateBiz(true)} className="flex-1 lg:flex-none px-12 py-6 bg-white text-black rounded-3xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-gold transition-all transform active:scale-95 flex items-center justify-center gap-4 shadow-2xl shadow-white/5">
-                        <Plus size={20}/> New Holding
-                    </button>
-                    <button onClick={() => handleBack()} className="flex-1 lg:flex-none px-12 py-6 glass border-white/10 rounded-3xl text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 hover:text-white hover:bg-white/5 transition flex items-center justify-center gap-4">
-                        <ArrowLeft size={20}/> Exit Interface
-                    </button>
-                </div>
+          <div className="pt-32 pb-20 px-6 max-w-7xl mx-auto animate-fade-in">
+              <h2 className="text-4xl font-display text-white uppercase mb-8">Command Center</h2>
+              
+              <GlobalProfileEditor user={user} onUpdate={(u: any) => { setUser(u); localStorage.setItem('gphs_user', JSON.stringify(u)); }} />
+              
+              <div className="flex items-center justify-between mb-8">
+                  <h3 className="text-2xl font-display text-white uppercase">My Ventures</h3>
+                  <button onClick={() => setShowCreateBiz(true)} className="bg-gold text-black px-6 py-2 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-white transition flex items-center gap-2">
+                      <Plus size={16}/> New Listing
+                  </button>
               </div>
 
-              {/* Identity Block */}
-              <div className="mb-24">
-                  <div className="flex items-center gap-6 mb-12">
-                      <h2 className="font-display text-4xl text-white uppercase tracking-tighter">Unified Profile</h2>
-                      <div className="h-px bg-white/5 flex-1"></div>
+              {myBusinesses.length === 0 ? (
+                  <div className="p-12 rounded-[2.5rem] border border-white/5 bg-zinc-900/50 text-center">
+                      <p className="text-zinc-500 mb-6 font-medium">You haven't listed any businesses yet.</p>
+                      <button onClick={() => setShowCreateBiz(true)} className="text-gold hover:text-white transition text-xs font-bold uppercase tracking-widest">Start your first venture</button>
                   </div>
-                  <GlobalProfileEditor user={user} onUpdate={(updated: any) => setUser({...user, ...updated})} />
-              </div>
-
-              {/* Active Portfolio Grid */}
-              <div>
-                  <div className="flex items-center gap-6 mb-16">
-                      <h2 className="font-display text-4xl text-white uppercase tracking-tighter">Market Presence</h2>
-                      <div className="h-px bg-white/5 flex-1"></div>
+              ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                      {myBusinesses.map(b => (
+                          <div key={b.id} className="glass-card rounded-[2rem] p-6 relative group">
+                              <div className="flex items-start justify-between mb-4">
+                                  <div className="w-16 h-16 rounded-xl overflow-hidden bg-black">
+                                      <img src={b.images[0] || 'mascot.png'} className="w-full h-full object-cover"/>
+                                  </div>
+                                  <div className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${b.status === 'approved' ? 'bg-green-500/10 text-green-500' : 'bg-amber-500/10 text-amber-500'}`}>
+                                      {b.status}
+                                  </div>
+                              </div>
+                              <h4 className="text-xl font-bold text-white mb-1">{b.business}</h4>
+                              <p className="text-zinc-500 text-xs mb-6 line-clamp-2">{b.description}</p>
+                              
+                              <div className="flex gap-2">
+                                  <button onClick={() => handleManageClick(b)} className="flex-1 py-3 bg-zinc-800 hover:bg-gold hover:text-black rounded-xl text-xs font-bold uppercase transition flex items-center justify-center gap-2">
+                                      <Settings size={14}/> Manage
+                                  </button>
+                                  <button onClick={() => setBusinessToDelete(b)} className="p-3 bg-red-950/20 text-red-500 hover:bg-red-500 hover:text-white rounded-xl transition">
+                                      <Trash2 size={16}/>
+                                  </button>
+                              </div>
+                          </div>
+                      ))}
                   </div>
-
-                  {myBusinesses.length > 0 ? (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
-                          {myBusinesses.map(biz => {
-                              const isPending = biz.status === 'pending';
-                              const isExpired = biz.subscriptionEnd && Number(biz.subscriptionEnd) < Date.now();
-                              return (
-                                <div key={biz.id} className="glass-card rounded-[3.5rem] p-10 flex flex-col group h-full relative overflow-hidden border border-white/5 hover:border-gold/20 transition-all duration-500">
-                                    <div className="relative aspect-[16/10] rounded-[2.5rem] overflow-hidden mb-10 bg-zinc-900 border border-white/5">
-                                        <img src={biz.images[0] || biz.imageURL || 'mascot.png'} className={`w-full h-full object-cover group-hover:scale-110 transition duration-1000 ${isExpired ? 'grayscale opacity-50' : ''}`} />
-                                        <div className="absolute top-6 left-6 flex flex-col gap-2">
-                                            {isPending && (
-                                                <div className="bg-amber-500/10 backdrop-blur-xl text-amber-500 border border-amber-500/30 px-5 py-2 rounded-full text-[8px] font-black uppercase tracking-widest flex items-center gap-2">
-                                                    <Clock size={12}/> Analysis Phase
-                                                </div>
-                                            )}
-                                            {isExpired && (
-                                                <div className="bg-red-500/10 backdrop-blur-xl text-red-500 border border-red-500/30 px-5 py-2 rounded-full text-[8px] font-black uppercase tracking-widest flex items-center gap-2">
-                                                    <AlertTriangle size={12}/> Expired Holding
-                                                </div>
-                                            )}
-                                            {!isPending && !isExpired && (
-                                                <div className="bg-green-500/10 backdrop-blur-xl text-green-500 border border-green-500/30 px-5 py-2 rounded-full text-[8px] font-black uppercase tracking-widest flex items-center gap-2">
-                                                    <CheckCircle size={12}/> Authenticated Live
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                    <div className="flex-1 space-y-6">
-                                        <h3 className="text-3xl font-display text-white group-hover:text-gold transition-colors tracking-tight uppercase leading-none">{biz.business}</h3>
-                                        <p className="text-zinc-600 text-sm line-clamp-2 leading-relaxed font-medium">"{biz.description}"</p>
-                                    </div>
-                                    <div className="mt-12 flex gap-4 pt-10 border-t border-white/5">
-                                        <button onClick={() => handleManageClick(biz)} className="flex-1 bg-white text-black py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-gold transition-all shadow-xl active:scale-95 flex items-center justify-center gap-2">
-                                            <Settings size={14}/> Adjust
-                                        </button>
-                                        <button onClick={() => setBusinessToDelete(biz)} className="p-5 bg-red-500/5 border border-red-500/10 text-red-500 rounded-2xl hover:bg-red-500 hover:text-white transition-all duration-300">
-                                            <Trash2 size={20}/>
-                                        </button>
-                                    </div>
-                                </div>
-                              );
-                          })}
-                      </div>
-                  ) : (
-                      <div className="text-center py-40 glass-card rounded-[4rem] border border-white/5 border-dashed">
-                          <Store size={64} className="text-zinc-900 mx-auto mb-10"/>
-                          <p className="text-3xl font-display text-zinc-800 uppercase tracking-[0.2em] font-black">No Active Portfolio</p>
-                      </div>
-                  )}
-              </div>
+              )}
           </div>
       )}
 
-      {showLogin && <LoginModal onClose={() => setShowLogin(false)} onLogin={handleLogin} />}
-      {showRegister && <LoginModal initialView="signup" onClose={() => setShowRegister(false)} onLogin={handleLogin} />}
-      {showCreateBiz && user && <CreateBusinessModal user={user} onClose={() => setShowCreateBiz(false)} onRefresh={loadBusinesses} />}
-      {editingBusiness && <EditBusinessModal business={editingBusiness} onClose={() => setEditingBusiness(null)} onRefresh={loadBusinesses} isAdmin={user?.role === 'admin'} />}
-      {showSupport && <SupportModal onClose={() => setShowSupport(false)} />}
-      {policyType && <PolicyModal type={policyType} onClose={() => setPolicyType(null)} />}
-      
-      {/* Dynamic Overlays */}
-      {businessToDelete && (
-          <DeleteConfirmationModal 
-            title="Decommission Venture" 
-            message={`Are you absolutely sure you want to permanently erase "${businessToDelete.business}"? This operation cannot be reversed.`}
-            onCancel={() => setBusinessToDelete(null)}
-            onConfirm={() => executeDeleteBusiness(businessToDelete)}
-            loading={processing.active}
+      {(showLogin || showRegister) && (
+          <LoginModal 
+              initialView={showRegister ? 'signup' : 'login'} 
+              onClose={() => { setShowLogin(false); setShowRegister(false); }} 
+              onLogin={handleLogin} 
           />
       )}
 
-      {processing.active && (
-          <div className="fixed inset-0 z-[600] flex flex-col items-center justify-center bg-zinc-950/95 backdrop-blur-xl animate-fade-in">
-              <div className="relative">
-                  <div className="w-32 h-32 border-4 border-gold/10 rounded-full animate-ping absolute -top-4 -left-4"></div>
-                  <Sparkles size={64} className="text-gold animate-pulse relative z-10" />
-              </div>
-              <p className="mt-12 text-zinc-500 text-[10px] font-black uppercase tracking-[0.5em] animate-pulse">{processing.text}</p>
-          </div>
+      {showCreateBiz && user && (
+          <CreateBusinessModal 
+              user={user} 
+              onClose={() => setShowCreateBiz(false)} 
+              onRefresh={loadBusinesses} 
+          />
+      )}
+
+      {editingBusiness && (
+          <EditBusinessModal 
+              business={editingBusiness} 
+              onClose={() => setEditingBusiness(null)} 
+              onRefresh={loadBusinesses} 
+              isAdmin={user?.role === 'admin'}
+          />
+      )}
+
+      {showSupport && (
+          <SupportModal onClose={() => setShowSupport(false)} />
+      )}
+
+      {policyType && (
+          <PolicyModal type={policyType} onClose={() => setPolicyType(null)} />
+      )}
+      
+      {businessToDelete && (
+          <DeleteConfirmationModal 
+              title="Confirm Deletion" 
+              message={`Are you sure you want to delete ${businessToDelete.business}? This cannot be undone.`} 
+              onConfirm={() => executeDeleteBusiness(businessToDelete)} 
+              onCancel={() => setBusinessToDelete(null)}
+              loading={processing.active}
+          />
       )}
     </div>
   );

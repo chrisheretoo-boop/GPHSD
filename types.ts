@@ -49,6 +49,19 @@ export interface SupportTicket {
   replyDate?: number;
 }
 
+export interface BusinessTicket {
+  id: string;
+  businessId: string;
+  customerName: string;
+  customerEmail: string;
+  subject: string;
+  message: string;
+  status: 'open' | 'closed';
+  timestamp: number;
+  reply?: string;
+  replyTimestamp?: number;
+}
+
 export interface User {
   id: string;
   username: string;
@@ -69,6 +82,7 @@ export interface ChatMessage {
   senderName: string;
   senderImg: string;
   text: string;
+  image?: string;
   timestamp: number;
 }
 

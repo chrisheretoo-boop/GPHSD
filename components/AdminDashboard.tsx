@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
-import { Users, Store, MessageSquare, TrendingUp, Search, Trash2, Edit, CheckCircle, XCircle, AlertCircle, Lock, LogOut, LayoutDashboard, ExternalLink, ShieldAlert, Sparkles, RefreshCw, ArrowUp, ArrowDown, Menu, Copy, UserCheck, UserCog, Ghost, Filter, Database, Settings, Save, Phone, Mail, MapPin, Loader2, ChevronDown, Eye } from 'lucide-react';
+import { Users, Store, MessageSquare, TrendingUp, Search, Trash2, Edit, CheckCircle, XCircle, AlertCircle, Lock, LogOut, LayoutDashboard, ExternalLink, ShieldAlert, Sparkles, RefreshCw, ArrowUp, ArrowDown, Menu, Copy, UserCheck, UserCog, Ghost, Filter, Database, Settings, Save, Phone, Mail, MapPin, Loader2, ChevronDown, Eye, LifeBuoy } from 'lucide-react';
 import { db, getBusinesses, getUsers, getSupportTickets, deleteUser, updateTicketStatus, updateUserPassword, saveBusinessOrder, getGlobalSettings, updateGlobalSettings } from '../firebase';
 import { doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { Business, User, SupportTicket } from '../types';
@@ -8,8 +9,8 @@ import { ReplyModal } from './ReplyModal';
 
 // Shared Internal Component for Deletions within the Admin Dashboard
 const AdminDeleteModal = ({ title, message, onConfirm, onCancel, loading }: any) => (
-    <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/95 backdrop-blur-xl p-4 animate-fade-in">
-        <div className="bg-zinc-900 w-full max-w-md rounded-[2.5rem] border border-red-500/20 shadow-2xl p-10 text-center">
+    <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/95 backdrop-blur-xl p-4">
+        <div className="bg-zinc-900 w-full max-w-md rounded-[2.5rem] border border-red-500/20 shadow-2xl p-10 text-center animate-fade-in">
             <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-8 text-red-500">
                 <Trash2 size={40} />
             </div>
@@ -28,9 +29,10 @@ const AdminDeleteModal = ({ title, message, onConfirm, onCancel, loading }: any)
 interface Props {
   user: User;
   onLogout: () => void;
+  onNav: (view: any) => void;
 }
 
-export const AdminDashboard: React.FC<Props> = ({ user, onLogout }) => {
+export const AdminDashboard: React.FC<Props> = ({ user, onLogout, onNav }) => {
   const [activeTab, setActiveTab] = useState<'overview' | 'businesses' | 'users' | 'support' | 'settings'>('overview');
   const [stats, setStats] = useState({ revenue: 0, activeListings: 0, users: 0, openTickets: 0 });
   const [businesses, setBusinesses] = useState<Business[]>([]);
@@ -191,7 +193,7 @@ export const AdminDashboard: React.FC<Props> = ({ user, onLogout }) => {
                         { id: 'overview', label: 'Overview', icon: <LayoutDashboard size={18}/> },
                         { id: 'businesses', label: 'Holdings', icon: <Store size={18}/> },
                         { id: 'users', label: 'User Hub', icon: <Users size={18}/> },
-                        { id: 'support', label: 'Support Queue', icon: <MessageSquare size={18}/>, badge: stats.openTickets },
+                        { id: 'support', label: 'Support Queue', icon: <LifeBuoy size={18}/>, badge: stats.openTickets },
                         { id: 'settings', label: 'System Settings', icon: <Settings size={18}/> }
                     ].map(tab => (
                         <button 
@@ -203,6 +205,13 @@ export const AdminDashboard: React.FC<Props> = ({ user, onLogout }) => {
                             {tab.badge && tab.badge > 0 && <span className="ml-auto bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full">{tab.badge}</span>}
                         </button>
                     ))}
+                    
+                    <button 
+                        onClick={() => onNav('chat')} 
+                        className="w-full flex items-center gap-4 px-6 py-4 rounded-2xl transition-all duration-300 text-zinc-500 hover:bg-white/5 hover:text-white group"
+                    >
+                        <MessageSquare size={18} className="group-hover:text-gold transition"/> Encrypted Comms
+                    </button>
                 </nav>
 
                 <div className="p-6 border-t border-white/5 mt-auto">
@@ -219,10 +228,10 @@ export const AdminDashboard: React.FC<Props> = ({ user, onLogout }) => {
                 <div>
                     <h1 className="font-display text-6xl text-white uppercase tracking-tighter leading-none">
                         {activeTab === 'overview' && 'Dashboard'}
-                        {activeTab === 'businesses' && 'Market <br/>Control'}
-                        {activeTab === 'users' && 'Directory <br/>Registry'}
-                        {activeTab === 'support' && 'Support <br/>Interface'}
-                        {activeTab === 'settings' && 'Global <br/>Override'}
+                        {activeTab === 'businesses' && <>Market <br/>Control</>}
+                        {activeTab === 'users' && <>Directory <br/>Registry</>}
+                        {activeTab === 'support' && <>Support <br/>Interface</>}
+                        {activeTab === 'settings' && <>Global <br/>Override</>}
                     </h1>
                 </div>
                 <div className="flex gap-4">

@@ -12,6 +12,7 @@
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "lucide-react": "0.263.1",
+    "crypto-js": "4.2.0",
     "firebase": "^12.7.0"
   },
   "devDependencies": {

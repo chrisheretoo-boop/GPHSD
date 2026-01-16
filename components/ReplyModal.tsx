@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { X, Send, MessageSquare, Mail } from 'lucide-react';
 import { SupportTicket } from '../types';
@@ -38,8 +39,8 @@ export const ReplyModal: React.FC<Props> = ({ ticket, onClose, onRefresh }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fade-in">
-       <div className="bg-zinc-900 w-full max-w-lg rounded-2xl border border-gold-500/30 shadow-[0_0_50px_rgba(255,215,0,0.1)] overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+       <div className="bg-zinc-900 w-full max-w-lg rounded-2xl border border-gold-500/30 shadow-[0_0_50px_rgba(255,215,0,0.1)] overflow-hidden animate-fade-in">
           <div className="p-6 border-b border-white/10 flex justify-between items-center bg-zinc-950">
             <div>
                 <h2 className="font-display text-2xl text-white uppercase tracking-wider flex items-center gap-2">

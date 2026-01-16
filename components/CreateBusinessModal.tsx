@@ -1,5 +1,5 @@
+
 import React, { useState } from 'react';
-// Fixed: Added 'Loader2' to the import list from lucide-react
 import { X, Store, CheckCircle, ArrowRight, Loader, Clock, Info, ShieldCheck, Loader2, Sparkles } from 'lucide-react';
 import { db } from '../firebase';
 import { collection, addDoc } from 'firebase/firestore';
@@ -55,8 +55,8 @@ export const CreateBusinessModal: React.FC<Props> = ({ user, onClose, onRefresh 
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fade-in">
-       <div className="bg-zinc-900 w-full max-w-lg rounded-3xl border border-white/5 shadow-2xl overflow-hidden flex flex-col max-h-[90vh] relative">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+       <div className="bg-zinc-900 w-full max-w-lg rounded-3xl border border-white/5 shadow-2xl overflow-hidden flex flex-col max-h-[90vh] relative animate-fade-in">
           <div className="p-8 border-b border-white/5 flex justify-between items-center bg-zinc-950">
             <div>
                 <h2 className="font-display text-2xl text-white uppercase tracking-wider flex items-center gap-3">
@@ -99,6 +99,20 @@ export const CreateBusinessModal: React.FC<Props> = ({ user, onClose, onRefresh 
                     <div className="bg-black/50 p-8 rounded-3xl border border-white/5 text-center">
                         <h3 className="font-display text-xl text-white mb-2 uppercase">Subscription Setup</h3>
                         <p className="text-zinc-600 text-[10px] font-black uppercase tracking-widest mb-6">$1.00 / Weekly Access Fee</p>
+                        
+                        <div className="space-y-3 mb-8 text-left">
+                            <div className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-2">Included Features</div>
+                            <div className="flex items-center gap-3 text-sm text-zinc-300">
+                                <CheckCircle size={14} className="text-gold"/> Public Listing on Directory
+                            </div>
+                            <div className="flex items-center gap-3 text-sm text-zinc-300">
+                                <CheckCircle size={14} className="text-gold"/> <b>Customer Support Help Desk</b>
+                            </div>
+                            <div className="flex items-center gap-3 text-sm text-zinc-300">
+                                <CheckCircle size={14} className="text-gold"/> Secure Reviews & Analytics
+                            </div>
+                        </div>
+
                         <div className="bg-blue-900/10 border border-blue-500/20 p-6 rounded-2xl text-left mb-8">
                             <div className="text-[10px] font-black text-blue-400 uppercase tracking-widest flex items-center gap-2 mb-3"><ShieldCheck size={14}/> Service Agreement</div>
                             <p className="text-zinc-400 text-xs leading-relaxed opacity-70">

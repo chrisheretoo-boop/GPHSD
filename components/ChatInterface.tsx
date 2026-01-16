@@ -1,12 +1,48 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { User, ChatRoom, ChatMessage } from '../types';
-import { subscribeToMessages, sendMessage, subscribeToUserChats, createOrGetDirectChat, getUsers, subscribeToAllChats } from '../firebase';
-import { Send, Globe, Lock, Plus, Search, MessageSquare, MoreVertical, Phone, Video, ArrowLeft, ShieldCheck, Zap, Eye, EyeOff } from 'lucide-react';
+import { subscribeToMessages, sendMessage, subscribeToUserChats, createOrGetDirectChat, getUsers, subscribeToAllChats, uploadSecureChatImage, decryptImage } from '../firebase';
+import { Send, Globe, Lock, Plus, Search, MessageSquare, MoreVertical, Phone, Video, ArrowLeft, ShieldCheck, Zap, Eye, EyeOff, Image as ImageIcon, X, Loader2, AlertTriangle } from 'lucide-react';
 
 interface Props {
     user: User;
     onClose: () => void;
 }
+
+// SecureImage Component to handle decryption
+const SecureImage = ({ src, alt, className }: { src: string, alt: string, className?: string }) => {
+    const [decryptedSrc, setDecryptedSrc] = useState<string | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(false);
+
+    useEffect(() => {
+        let active = true;
+        const load = async () => {
+            try {
+                // Decrypt the image source
+                const url = await decryptImage(src);
+                if (active) {
+                    setDecryptedSrc(url);
+                    setLoading(false);
+                }
+            } catch (e) {
+                if (active) {
+                    // console.error("Failed to load secure image", e);
+                    setError(true);
+                    setLoading(false);
+                }
+            }
+        };
+        load();
+        return () => { active = false; };
+    }, [src]);
+
+    if (loading) return <div className="w-full h-48 bg-zinc-900 animate-pulse flex items-center justify-center rounded-lg"><Loader2 className="animate-spin text-zinc-700"/></div>;
+    // Fallback if decryption fails hard
+    if (error) return <div className="w-full h-32 bg-zinc-900 flex items-center justify-center text-red-500 text-xs rounded-lg border border-red-500/20"><AlertTriangle size={16} className="mr-2"/> Secure Img Error</div>;
+
+    return <img src={decryptedSrc || src} alt={alt} className={className} />;
+};
 
 export const ChatInterface: React.FC<Props> = ({ user, onClose }) => {
     const [activeRoomId, setActiveRoomId] = useState<string>('global');
@@ -17,10 +53,25 @@ export const ChatInterface: React.FC<Props> = ({ user, onClose }) => {
     const [allUsers, setAllUsers] = useState<User[]>([]);
     const [userSearch, setUserSearch] = useState('');
     
+    // Image Upload State
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [isUploading, setIsUploading] = useState(false);
+    const [uploadStatus, setUploadStatus] = useState<string>(''); // For more detailed feedback
+    
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const textInputRef = useRef<HTMLInputElement>(null);
+    const isMounted = useRef(true);
+    
     // Admin Spy Mode State
     const [spyMode, setSpyMode] = useState(false);
     
     const scrollRef = useRef<HTMLDivElement>(null);
+
+    // Track mounted state
+    useEffect(() => {
+        isMounted.current = true;
+        return () => { isMounted.current = false; };
+    }, []);
 
     // Subscribe to Rooms (User or All/Spy)
     useEffect(() => {
@@ -28,11 +79,11 @@ export const ChatInterface: React.FC<Props> = ({ user, onClose }) => {
         
         if (spyMode && user.role === 'admin') {
             unsubscribe = subscribeToAllChats((updatedRooms) => {
-                setRooms(updatedRooms);
+                if (isMounted.current) setRooms(updatedRooms);
             });
         } else {
             unsubscribe = subscribeToUserChats(user.username, (updatedRooms) => {
-                setRooms(updatedRooms);
+                if (isMounted.current) setRooms(updatedRooms);
             });
         }
 
@@ -42,13 +93,15 @@ export const ChatInterface: React.FC<Props> = ({ user, onClose }) => {
     // Subscribe to Active Room Messages
     useEffect(() => {
         const unsubscribe = subscribeToMessages(activeRoomId, (msgs) => {
-            setMessages(msgs);
-            // Scroll to bottom
-            setTimeout(() => {
-                if (scrollRef.current) {
-                    scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-                }
-            }, 100);
+            if (isMounted.current) {
+                setMessages(msgs);
+                // Scroll to bottom
+                setTimeout(() => {
+                    if (scrollRef.current) {
+                        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+                    }
+                }, 50);
+            }
         });
         return () => unsubscribe();
     }, [activeRoomId]);
@@ -58,28 +111,109 @@ export const ChatInterface: React.FC<Props> = ({ user, onClose }) => {
         if (showNewChatModal) {
             getUsers().then(users => {
                 // Filter out self
-                setAllUsers(users.filter(u => u.username !== user.username));
+                if (isMounted.current) setAllUsers(users.filter(u => u.username !== user.username));
             });
         }
     }, [showNewChatModal, user.username]);
 
+    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            
+            // Safety check for file size. 
+            // Reduced to 10MB to be safer before compression triggers
+            if (file.size > 10 * 1024 * 1024) {
+                alert("File is too large. Please select an image under 10MB to ensure secure encryption.");
+                if (fileInputRef.current) fileInputRef.current.value = '';
+                return;
+            }
+
+            setSelectedFile(file);
+            // Automatically focus the text input so pressing Enter sends the message immediately
+            setTimeout(() => {
+                textInputRef.current?.focus();
+            }, 100);
+        }
+    };
+
+    const handleRemoveFile = () => {
+        setSelectedFile(null);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+        textInputRef.current?.focus();
+    };
+
     const handleSend = async (e?: React.FormEvent) => {
         e?.preventDefault();
-        if (!inputText.trim()) return;
         
+        // Use values from state
+        const textToSend = inputText.trim();
+        const fileToSend = selectedFile;
+        
+        // Guard: Need at least one
+        if (!textToSend && !fileToSend) return;
+        
+        setIsUploading(true);
+        setUploadStatus('Preparing...');
+
         try {
-            await sendMessage(activeRoomId, user, inputText);
-            setInputText('');
+            let imageUrl: string | undefined = undefined;
+            
+            // Upload Image First if present (Using Secure Upload)
+            if (fileToSend) {
+                setUploadStatus('Encrypting & Uploading...');
+                try {
+                    // This function compresses AND encrypts
+                    // We add a Promise.race to ensure it doesn't hang indefinitely in the UI
+                    // Timeout extended to 120 seconds (2 minutes)
+                    const uploadPromise = uploadSecureChatImage(fileToSend);
+                    const timeoutPromise = new Promise<string>((_, reject) => 
+                        setTimeout(() => reject(new Error("Upload timed out")), 120000)
+                    );
+                    
+                    imageUrl = await Promise.race([uploadPromise, timeoutPromise]);
+                } catch (uploadError: any) {
+                    console.error("Image upload failed", uploadError);
+                    alert(`Failed to upload image: ${uploadError.message || 'Unknown error'}. Please try again.`);
+                    
+                    if (isMounted.current) {
+                        setIsUploading(false);
+                        setUploadStatus('');
+                    }
+                    return; // Stop here, don't send message, let user retry
+                }
+            }
+
+            // Send to Firestore
+            setUploadStatus('Sending...');
+            await sendMessage(activeRoomId, user, textToSend, imageUrl);
+
+            // If successful, clear inputs
+            if (isMounted.current) {
+                setInputText('');
+                handleRemoveFile();
+            }
+
         } catch (error) {
             console.error("Failed to send message", error);
+            alert("Failed to send message. Please check your connection.");
+        } finally {
+            if (isMounted.current) {
+                setIsUploading(false);
+                setUploadStatus('');
+                setTimeout(() => textInputRef.current?.focus(), 50);
+            }
         }
     };
 
     const handleStartDirectChat = async (otherUser: User) => {
         try {
             const roomId = await createOrGetDirectChat(user, otherUser);
-            setActiveRoomId(roomId);
-            setShowNewChatModal(false);
+            if (isMounted.current) {
+                setActiveRoomId(roomId);
+                setShowNewChatModal(false);
+            }
         } catch (error) {
             alert("Could not start chat");
         }
@@ -180,7 +314,7 @@ export const ChatInterface: React.FC<Props> = ({ user, onClose }) => {
                                                 <div className="flex items-center gap-2">
                                                     <div className="truncate text-sm flex-1">{getRoomName(room)}</div>
                                                 </div>
-                                                <div className="truncate text-[10px] opacity-60 font-mono">{room.lastMessage || 'Start conversation...'}</div>
+                                                <div className="truncate text-[10px] opacity-60 font-mono">{room.lastMessage ? (room.lastMessage.startsWith('http') ? '📷 Image' : room.lastMessage) : 'Start conversation...'}</div>
                                             </div>
                                         </button>
                                     );
@@ -242,8 +376,18 @@ export const ChatInterface: React.FC<Props> = ({ user, onClose }) => {
                                 
                                 <div className={`max-w-[80%] ${isMe ? 'items-end' : 'items-start'} flex flex-col`}>
                                     {!isMe && showAvatar && <span className="text-[10px] text-zinc-500 ml-1 mb-1 font-bold">{msg.senderName}</span>}
-                                    <div className={`px-5 py-3 rounded-2xl text-sm leading-relaxed font-medium shadow-lg ${isMe ? 'bg-gold-500 text-black rounded-tr-none' : 'bg-zinc-800 text-zinc-200 rounded-tl-none border border-white/5'}`}>
-                                        {msg.text}
+                                    
+                                    <div className={`px-5 py-3 rounded-2xl text-sm leading-relaxed font-medium shadow-lg overflow-hidden ${isMe ? 'bg-gold-500 text-black rounded-tr-none' : 'bg-zinc-800 text-zinc-200 rounded-tl-none border border-white/5'}`}>
+                                        {msg.image && (
+                                            <div className="mb-2 -mx-2 -mt-2 rounded-lg overflow-hidden bg-black/50 border border-white/5">
+                                                <SecureImage 
+                                                    src={msg.image} 
+                                                    alt="attachment" 
+                                                    className="max-w-full h-auto object-cover max-h-64 rounded-lg" 
+                                                />
+                                            </div>
+                                        )}
+                                        {msg.text && <p>{msg.text}</p>}
                                     </div>
                                     <span className="text-[9px] text-zinc-600 mt-1 px-1 opacity-0 group-hover:opacity-100 transition">
                                         {new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
@@ -256,11 +400,35 @@ export const ChatInterface: React.FC<Props> = ({ user, onClose }) => {
 
                 {/* Input Area */}
                 <div className="p-6 bg-zinc-900/30 border-t border-white/5">
+                    {/* Image Preview */}
+                    {selectedFile && (
+                        <div className="mb-4 flex items-center gap-3 bg-zinc-900/80 p-3 rounded-xl border border-white/10 animate-fade-in inline-flex">
+                             <div className="w-12 h-12 rounded-lg bg-black border border-white/5 overflow-hidden">
+                                 <img src={URL.createObjectURL(selectedFile)} className="w-full h-full object-cover" />
+                             </div>
+                             <div className="flex-1">
+                                 <p className="text-xs text-white truncate max-w-[150px]">{selectedFile.name}</p>
+                                 <p className="text-[10px] text-zinc-500">{(selectedFile.size / 1024).toFixed(1)} KB</p>
+                             </div>
+                             <button onClick={handleRemoveFile} className="p-1 hover:bg-white/10 rounded-full text-zinc-400 hover:text-white transition">
+                                 <X size={16} />
+                             </button>
+                        </div>
+                    )}
+
                     <form onSubmit={handleSend} className="relative flex items-center gap-4">
-                        <button type="button" disabled={isSpectator} className="p-3 rounded-xl bg-zinc-800 text-zinc-400 hover:text-white transition hover:bg-zinc-700 disabled:opacity-50">
-                             <Plus size={20}/>
+                        <input 
+                            type="file" 
+                            ref={fileInputRef} 
+                            className="hidden" 
+                            accept="image/*"
+                            onChange={handleFileSelect}
+                        />
+                        <button type="button" disabled={isSpectator} onClick={() => fileInputRef.current?.click()} className="p-3 rounded-xl bg-zinc-800 text-zinc-400 hover:text-white transition hover:bg-zinc-700 disabled:opacity-50">
+                             <ImageIcon size={20}/>
                         </button>
                         <input 
+                            ref={textInputRef}
                             value={inputText}
                             onChange={e => setInputText(e.target.value)}
                             disabled={isSpectator}
@@ -269,10 +437,15 @@ export const ChatInterface: React.FC<Props> = ({ user, onClose }) => {
                         />
                         <button 
                             type="submit" 
-                            disabled={!inputText.trim() || isSpectator}
-                            className="absolute right-2 p-2 bg-gold-500 text-black rounded-xl hover:bg-white transition disabled:opacity-0 disabled:scale-75 transform duration-200"
+                            disabled={(!inputText.trim() && !selectedFile) || isSpectator || isUploading}
+                            className="absolute right-2 p-2 bg-gold-500 text-black rounded-xl hover:bg-white transition disabled:opacity-0 disabled:scale-75 transform duration-200 flex items-center gap-2"
                         >
-                            <Send size={18}/>
+                            {isUploading ? (
+                                <>
+                                    <Loader2 size={18} className="animate-spin" />
+                                    {uploadStatus && <span className="text-[10px] font-bold hidden md:inline">{uploadStatus}</span>}
+                                </>
+                            ) : <Send size={18}/>}
                         </button>
                     </form>
                 </div>
@@ -281,7 +454,7 @@ export const ChatInterface: React.FC<Props> = ({ user, onClose }) => {
             {/* New Chat Modal */}
             {showNewChatModal && (
                 <div className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-                    <div className="bg-zinc-900 w-full max-w-md rounded-3xl border border-white/10 shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
+                    <div className="bg-zinc-900 w-full max-w-md rounded-3xl border border-white/10 shadow-2xl overflow-hidden flex flex-col max-h-[80vh] animate-fade-in">
                         <div className="p-6 border-b border-white/5 flex justify-between items-center">
                             <h3 className="font-display font-bold text-xl text-white">Start New Comms</h3>
                             <button onClick={() => setShowNewChatModal(false)}><ArrowLeft size={20} className="text-zinc-500 hover:text-white"/></button>

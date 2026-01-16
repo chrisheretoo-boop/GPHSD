@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { X, Send, MessageSquare, AlertCircle, CheckCircle, LifeBuoy, Sparkles } from 'lucide-react';
 import { db } from '../firebase';
@@ -39,8 +40,8 @@ export const SupportModal: React.FC<Props> = ({ onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fade-in">
-       <div className="bg-zinc-900 w-full max-w-md rounded-2xl border border-gold-500/30 shadow-[0_0_50px_rgba(255,215,0,0.1)] overflow-hidden flex flex-col max-h-[90vh] relative">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+       <div className="bg-zinc-900 w-full max-w-md rounded-2xl border border-gold-500/30 shadow-[0_0_50px_rgba(255,215,0,0.1)] overflow-hidden flex flex-col max-h-[90vh] relative animate-fade-in">
           {/* Header */}
           <div className="p-6 border-b border-white/10 flex justify-between items-center bg-zinc-950">
             <div>

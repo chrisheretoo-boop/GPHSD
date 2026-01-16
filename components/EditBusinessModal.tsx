@@ -1,8 +1,9 @@
+
 import React, { useState, useEffect, useRef } from 'react';
-import { Business } from '../types';
-import { db, uploadImage, deleteUser } from '../firebase';
+import { Business, BusinessTicket } from '../types';
+import { db, uploadImage, deleteUser, getBusinessTickets, resolveBusinessTicket } from '../firebase';
 import { doc, updateDoc } from 'firebase/firestore';
-import { X, Save, Trash2, CheckCircle, Image as ImageIcon, Calendar, Star, Plus, Link, AlertTriangle, Instagram, Twitter, Facebook, Globe, Phone, Mail, Loader2, User, Upload, Camera, BadgeCheck, Store, MapPin, Clock, DollarSign, Sparkles, RefreshCw } from 'lucide-react';
+import { X, Save, Trash2, CheckCircle, Image as ImageIcon, Calendar, Star, Plus, Link, AlertTriangle, Instagram, Twitter, Facebook, Globe, Phone, Mail, Loader2, User, Upload, Camera, BadgeCheck, Store, MapPin, Clock, DollarSign, Sparkles, RefreshCw, Inbox, MessageSquare, Reply } from 'lucide-react';
 
 interface Props {
   business: Business;
@@ -13,12 +14,18 @@ interface Props {
 
 export const EditBusinessModal: React.FC<Props> = ({ business, onClose, onRefresh, isAdmin }) => {
   const [formData, setFormData] = useState<Partial<Business>>({});
-  const [activeTab, setActiveTab] = useState<'details' | 'gallery' | 'admin'>('details');
+  const [activeTab, setActiveTab] = useState<'details' | 'gallery' | 'inbox' | 'admin'>('details');
   const [loading, setLoading] = useState(false);
   const [subDays, setSubDays] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [newImageUrl, setNewImageUrl] = useState('');
   
+  // Ticket System State
+  const [tickets, setTickets] = useState<BusinessTicket[]>([]);
+  const [loadingTickets, setLoadingTickets] = useState(false);
+  const [replyText, setReplyText] = useState('');
+  const [activeTicketId, setActiveTicketId] = useState<string | null>(null);
+
   // Separate state for social links
   const [socialLinks, setSocialLinks] = useState({ instagram: '', twitter: '', facebook: '', website: '' });
 
@@ -44,7 +51,22 @@ export const EditBusinessModal: React.FC<Props> = ({ business, onClose, onRefres
 
     // Calculate remaining days based on business data initially
     calculateDays(business.subscriptionEnd);
+    
+    // Fetch tickets if inbox tab active (or pre-fetch)
+    fetchTickets();
   }, [business]);
+
+  const fetchTickets = async () => {
+      setLoadingTickets(true);
+      try {
+          const t = await getBusinessTickets(business.id);
+          setTickets(t);
+      } catch (e) {
+          console.error("Failed to load tickets", e);
+      } finally {
+          setLoadingTickets(false);
+      }
+  };
 
   const calculateDays = (endTime: number | undefined) => {
     const now = Date.now();
@@ -166,9 +188,31 @@ export const EditBusinessModal: React.FC<Props> = ({ business, onClose, onRefres
       }
   };
 
+  const handleTicketReply = async (ticket: BusinessTicket) => {
+      if(!replyText.trim()) return;
+      
+      setLoading(true); // Re-use global loading for simplicity
+      try {
+          await resolveBusinessTicket(ticket.id, replyText);
+          
+          // Open mail client
+          const subject = encodeURIComponent(`Re: ${ticket.subject} - Support`);
+          const body = encodeURIComponent(`Hi ${ticket.customerName},\n\n${replyText}\n\n--\n${business.business} Support`);
+          window.location.href = `mailto:${ticket.customerEmail}?subject=${subject}&body=${body}`;
+          
+          setReplyText('');
+          setActiveTicketId(null);
+          await fetchTickets();
+      } catch (e) {
+          alert("Failed to resolve ticket.");
+      } finally {
+          setLoading(false);
+      }
+  };
+
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-fade-in">
-      <div className="bg-zinc-950 w-full max-w-4xl rounded-3xl border border-white/10 shadow-2xl overflow-hidden flex flex-col h-[90vh] md:h-auto md:max-h-[90vh] relative">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md p-4">
+      <div className="bg-zinc-950 w-full max-w-4xl rounded-3xl border border-white/10 shadow-2xl overflow-hidden flex flex-col h-[90vh] md:h-auto md:max-h-[90vh] relative animate-fade-in">
         {/* Header */}
         <div className="p-8 border-b border-white/10 flex justify-between items-center bg-zinc-900/50 backdrop-blur-sm">
           <div>
@@ -186,7 +230,7 @@ export const EditBusinessModal: React.FC<Props> = ({ business, onClose, onRefres
         {/* Tabs */}
         <div className="px-8 pt-6 pb-2 bg-zinc-950 border-b border-white/5">
             <div className="flex gap-2 overflow-x-auto scrollbar-hide">
-                {['details', 'gallery', isAdmin && 'admin'].filter(Boolean).map((tab) => (
+                {['details', 'gallery', 'inbox', isAdmin && 'admin'].filter(Boolean).map((tab) => (
                     <button 
                         key={tab as string}
                         onClick={() => setActiveTab(tab as any)} 
@@ -194,7 +238,9 @@ export const EditBusinessModal: React.FC<Props> = ({ business, onClose, onRefres
                             ? 'bg-gold-400 text-black border-gold-400 shadow-[0_0_20px_rgba(212,175,55,0.2)]' 
                             : 'bg-zinc-900 text-zinc-500 border-white/5 hover:border-white/20 hover:text-white'}`}
                     >
-                        {tab}
+                        {tab === 'inbox' ? (
+                            <span className="flex items-center gap-2">Inbox {tickets.filter(t => t.status === 'open').length > 0 && <span className="w-2 h-2 bg-red-500 rounded-full"></span>}</span>
+                        ) : tab}
                     </button>
                 ))}
             </div>
@@ -351,6 +397,95 @@ export const EditBusinessModal: React.FC<Props> = ({ business, onClose, onRefres
                     </div>
                 </div>
             </div>
+          )}
+
+          {activeTab === 'inbox' && (
+              <div className="space-y-6">
+                  {/* Added Header with Refresh Button */}
+                  <div className="flex justify-between items-center mb-2">
+                      <h3 className="font-display text-lg text-white uppercase tracking-wide">Support Inbox</h3>
+                      <button onClick={fetchTickets} className="p-2 bg-zinc-900 border border-white/5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/5 transition flex items-center gap-2 text-xs font-bold uppercase tracking-wide">
+                          <RefreshCw size={14} className={loadingTickets ? 'animate-spin' : ''} /> Refresh
+                      </button>
+                  </div>
+
+                  {loadingTickets ? (
+                      <div className="text-center py-20 text-gold-400 animate-pulse">
+                          <Loader2 size={32} className="mx-auto mb-2 animate-spin"/>
+                          <p className="text-[10px] font-black uppercase tracking-widest">Accessing Secure Messages...</p>
+                      </div>
+                  ) : tickets.length === 0 ? (
+                      <div className="text-center py-20 bg-zinc-900/30 rounded-2xl border border-white/5 border-dashed">
+                          <Inbox size={48} className="mx-auto mb-4 text-zinc-700"/>
+                          <h3 className="text-zinc-400 font-bold mb-1">No Tickets</h3>
+                          <p className="text-zinc-600 text-sm">Your help desk is clear.</p>
+                      </div>
+                  ) : (
+                      <div className="grid gap-4">
+                          {tickets.map(ticket => (
+                              <div key={ticket.id} className={`bg-zinc-900/50 border border-white/5 rounded-2xl p-6 ${ticket.status === 'closed' ? 'opacity-50' : 'border-gold-500/20'}`}>
+                                  <div className="flex justify-between items-start mb-4">
+                                      <div>
+                                          <div className="flex items-center gap-2 mb-1">
+                                              <h4 className="text-white font-bold text-lg">{ticket.subject}</h4>
+                                              {ticket.status === 'open' ? (
+                                                  <span className="px-2 py-0.5 bg-red-500/10 text-red-500 text-[10px] font-black uppercase rounded">Open</span>
+                                              ) : (
+                                                  <span className="px-2 py-0.5 bg-green-500/10 text-green-500 text-[10px] font-black uppercase rounded">Resolved</span>
+                                              )}
+                                          </div>
+                                          <div className="text-xs text-zinc-500 flex items-center gap-2">
+                                              <User size={12}/> {ticket.customerName}
+                                              <span className="text-zinc-700">|</span>
+                                              <Mail size={12}/> {ticket.customerEmail}
+                                              <span className="text-zinc-700">|</span>
+                                              {new Date(ticket.timestamp).toLocaleDateString()}
+                                          </div>
+                                      </div>
+                                  </div>
+                                  
+                                  <div className="bg-black/40 p-4 rounded-xl text-zinc-300 text-sm mb-4 border border-white/5 font-medium">
+                                      "{ticket.message}"
+                                  </div>
+
+                                  {ticket.status === 'open' && (
+                                      <div>
+                                          {activeTicketId === ticket.id ? (
+                                              <div className="space-y-3 animate-fade-in bg-zinc-950 p-4 rounded-xl border border-white/10">
+                                                  <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-2 block">Your Response</label>
+                                                  <textarea 
+                                                      value={replyText} 
+                                                      onChange={e => setReplyText(e.target.value)}
+                                                      placeholder="Type your reply here..."
+                                                      className="w-full bg-black border border-white/10 rounded-xl p-3 text-white text-sm outline-none focus:border-gold/50 transition"
+                                                      rows={3}
+                                                  />
+                                                  <div className="flex gap-2 justify-end">
+                                                      <button onClick={() => setActiveTicketId(null)} className="px-4 py-2 text-zinc-500 hover:text-white text-xs font-bold uppercase transition">Cancel</button>
+                                                      <button onClick={() => handleTicketReply(ticket)} className="px-6 py-2 bg-gold text-black rounded-lg text-xs font-bold uppercase flex items-center gap-2 hover:bg-white transition">
+                                                          <Reply size={14}/> Send & Resolve
+                                                      </button>
+                                                  </div>
+                                              </div>
+                                          ) : (
+                                              <button onClick={() => { setActiveTicketId(ticket.id); setReplyText(''); }} className="text-gold text-xs font-bold uppercase hover:text-white transition flex items-center gap-2 px-4 py-2 bg-gold/10 rounded-lg hover:bg-gold/20">
+                                                  <MessageSquare size={14}/> Reply to Ticket
+                                              </button>
+                                          )}
+                                      </div>
+                                  )}
+                                  
+                                  {ticket.reply && (
+                                      <div className="mt-4 pl-4 border-l-2 border-gold/30">
+                                          <p className="text-[10px] text-zinc-500 font-bold uppercase mb-1">Response sent {ticket.replyTimestamp && new Date(ticket.replyTimestamp).toLocaleDateString()}</p>
+                                          <p className="text-zinc-400 text-sm">{ticket.reply}</p>
+                                      </div>
+                                  )}
+                              </div>
+                          ))}
+                      </div>
+                  )}
+              </div>
           )}
 
           {activeTab === 'admin' && isAdmin && (

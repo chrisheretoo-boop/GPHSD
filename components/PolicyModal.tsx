@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { X, Shield, FileText } from 'lucide-react';
 
@@ -8,8 +9,8 @@ interface Props {
 
 export const PolicyModal: React.FC<Props> = ({ type, onClose }) => {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fade-in" onClick={onClose}>
-       <div className="bg-zinc-900 w-full max-w-2xl rounded-2xl border border-gold-500/30 shadow-2xl overflow-hidden flex flex-col max-h-[80vh]" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4" onClick={onClose}>
+       <div className="bg-zinc-900 w-full max-w-2xl rounded-2xl border border-gold-500/30 shadow-2xl overflow-hidden flex flex-col max-h-[80vh] animate-fade-in" onClick={e => e.stopPropagation()}>
           <div className="p-6 border-b border-white/10 flex justify-between items-center bg-zinc-950">
             <h2 className="font-display text-2xl text-white uppercase tracking-wider flex items-center gap-2">
                 {type === 'privacy' ? <Shield size={24} className="text-gold-400"/> : <FileText size={24} className="text-gold-400"/>}
