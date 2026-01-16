@@ -339,7 +339,16 @@ export const getUsers = async (): Promise<UserType[]> => {
         try {
              const appQ = query(collection(db, "businesses"), where("status", "==", "approved"));
              const appSnap = await getDocs(appQ);
-             appUsers = appSnap.docs.map(d => ({ id: d.id, username: (d.data() as any).owner, role: 'business' as const, source: 'applications' as const }));
+             // FIX: Correct source to 'businesses' so deleteUser and updatePassword target correct collection
+             appUsers = appSnap.docs.map(d => ({ 
+                 id: d.id, 
+                 username: (d.data() as any).owner, 
+                 role: 'business' as const, 
+                 source: 'businesses' as const,
+                 displayName: (d.data() as any).owner,
+                 profileImg: '',
+                 contactInfo: ''
+             }));
         } catch (e2) {
             console.warn("Could not fetch implicit users.");
         }
@@ -364,7 +373,12 @@ export const getUsers = async (): Promise<UserType[]> => {
 };
 
 export const updateUserPassword = async (id: string, newPw: string, source: string) => {
-    await updateDoc(doc(db, source, id), { password: newPw });
+    try {
+        await updateDoc(doc(db, source, id), { password: newPw });
+    } catch (e: any) {
+        console.error("Update Password Error:", e);
+        throw new Error(e.message || "Failed to update password");
+    }
 };
 
 export const updateUserProfile = async (id: string, data: any) => {

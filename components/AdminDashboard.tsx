@@ -131,8 +131,16 @@ export const AdminDashboard: React.FC<Props> = ({ user, onLogout, onNav }) => {
   const handleResetPassword = async (userObj: any) => {
       const newPw = prompt(`Enter new password for ${userObj.username}:`);
       if(!newPw) return;
-      await updateUserPassword(userObj.id, newPw, userObj.source || 'users');
-      alert("Password updated.");
+      
+      try {
+          // Ensure we have a valid source, defaulting to 'users' for safety
+          const targetSource = userObj.source || 'users';
+          await updateUserPassword(userObj.id, newPw, targetSource);
+          alert("Password updated successfully.");
+      } catch (e: any) {
+          console.error("Password update failed", e);
+          alert("Failed to update password: " + (e.message || "Unknown error"));
+      }
   };
 
   const moveBusiness = async (index: number, direction: 'up' | 'down') => {
@@ -169,7 +177,7 @@ export const AdminDashboard: React.FC<Props> = ({ user, onLogout, onNav }) => {
       if (!matchesSearch) return false;
       if (userFilter === 'all') return true;
       if (userFilter === 'admin') return u.role === 'admin';
-      if (userFilter === 'implicit') return u.source === 'applications';
+      if (userFilter === 'implicit') return u.source === 'applications' || u.source === 'businesses';
       if (userFilter === 'registered') return u.source === 'users' && u.role !== 'admin';
       return true;
   });

@@ -73,7 +73,7 @@ export interface User {
   contactInfo?: string;
   created?: number;
   password?: string;
-  source?: 'users' | 'applications';
+  source?: 'users' | 'applications' | 'businesses';
 }
 
 export interface ChatMessage {
